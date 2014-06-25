@@ -1,14 +1,32 @@
-#!/bin/perl
+#!/usr/bin/perl
 use warnings;
 use strict;
+use Config::Simple;
+use DBI;
 
-use Config::Simple
+# Read config file
+my %config;
+Config::Simple->import_from('kostour.ini', \%config);
 
-our %config;
+my ($dsn, $dbh, $sth, $id, $firstname, $lastname);
 
-Config::Simple->import_from(kostour.ini', \%config);
+# Get DB handle
+$dsn="dbi:mysql:" . $config{Database};
 
-for each (keys %config) {
-    print "$_: $config{$_}\n"
+$dbh=DBI->connect($dsn, $config{Username}, $config{Password}) ||
+    die "Error opening database: $DBI::errstr\n";
+
+# Read all data from table
+$sth=$dbh->prepare("SELECT * FROM test;") || die "Prepare failed: $DBI::errstr\n";
+
+$sth->execute() || die "Couldn't execute query: $DBI::errstr\n";
+
+# Print it out
+while (( $id, $firstname, $lastname) = $sth->fetchrow_array) {
+    print "Person $id: $firstname $lastname\n";
 }
+
+# Tidy up and disconnect
+$sth->finish;
+$dbh->disconnect || die "Failed to disconnect: $DBI::errstr\n";
 
