@@ -401,5 +401,4 @@ ALTER TABLE books_transport
         CHECK (SUBSTR(booking_id, 1, 1) = 'b'
 		       	AND CAST(SUBSTR(booking_id, 2, 5) AS SMALLINT)
 			        BETWEEN 00000 AND 99999)
-					
-					
+
