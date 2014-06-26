@@ -9,7 +9,7 @@
 * 1.1: MySQL does not support CREATE DOMAIN.
 *      Use standard types and add constraints
 *      to table definition instead.
- *********************************
+*********************************
 */
 
 -- What will we do with this?
@@ -210,6 +210,7 @@ ALTER TABLE books_transport
 
     ADD CONSTRAINT books_transport_in_transport_bt
         FOREIGN KEY (transport_id) REFERENCES transport(transport_id);
+
 
 ALTER TABLE client
     ADD CONSTRAINT valid_client_ids
