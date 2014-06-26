@@ -2,13 +2,15 @@
 ********************************
 * Name:    create_tables.sql 
 * Author:  Doug Cooper 
-* Version: 1.1
+* Version: 1.2
 *
 * Version History
 * 1.0: Initial code
 * 1.1: MySQL does not support CREATE DOMAIN.
 *      Use standard types and add constraints
 *      to table definition instead.
+* 1.2: CHECK constraints unsupported too.
+*      Rewritten to use triggers instead.
 *********************************
 */
 
@@ -28,7 +30,7 @@ DROP TABLE IF EXISTS credit_card;
 DROP TABLE IF EXISTS client;
 
 CREATE TABLE client (
-    client_id CHAR(6) NOT NULL,
+    client_id UNSIGNED MEDIUMINT NOT NULL,
     first_name VARCHAR(20) NOT NULL,
     last_name VARCHAR(20) NOT NULL,
     address VARCHAR(200) NOT NULL,
@@ -55,7 +57,7 @@ CREATE TABLE credit_card (
 );
 
 CREATE TABLE accommodation (
-    accom_id CHAR(6) NOT NULL,
+    accom_id UNSIGNED MEDIUMINT NOT NULL,
     name VARCHAR(100) NOT NULL,
     address VARCHAR(200) NOT NULL,
     tel_no VARCHAR(15),
@@ -80,7 +82,7 @@ CREATE TABLE room (
 );
 
 CREATE TABLE booking (
-    booking_id CHAR(6) NOT NULL,
+    booking_id UNSIGNED MEDIUMINT NOT NULL,
     booking_date DATE NOT NULL,
     booking_time TIME NOT NULL,
     booking_type VARCHAR(13) NOT NULL,
@@ -96,7 +98,7 @@ CREATE TABLE booking (
 );
 
 CREATE TABLE transport (
-    transport_id CHAR(6) NOT NULL,
+    transport_id UNSIGNED MEDIUMINT NOT NULL,
     name VARCHAR(100) NOT NULL,
     address VARCHAR(200),
     tel_no VARCHAR(15),
@@ -112,7 +114,7 @@ CREATE TABLE transport (
 );
 
 CREATE TABLE activity (
-    activity_id CHAR(7) NOT NULL,
+    activity_id UNSIGNED MEDIUMINT NOT NULL,
     name VARCHAR(100) NOT NULL,
     address VARCHAR(200),
     tel_no VARCHAR(15),
@@ -133,7 +135,7 @@ CREATE TABLE activity (
 );
 
 CREATE TABLE attraction (
-    attraction_id CHAR(7) NOT NULL,
+    attraction_id UNSIGNED MEDIUMINT NOT NULL,
     name VARCHAR(100) NOT NULL,
     address VARCHAR(200),
     tel_no VARCHAR(15),
@@ -153,22 +155,22 @@ CREATE TABLE books (
     
     /* Check how to  implement supertypes */
     
-    booking_id CHAR(6) NOT NULL,
-    thing_to_do_id CHAR(7) NOT NULL,
+    booking_id UNSIGNED MEDIUMINT NOT NULL,
+    thing_to_do_id UNSIGNED MEDIUMINT NOT NULL,
 
     PRIMARY KEY (booking_id, thing_to_do_id)
 );
 
 CREATE TABLE books_room (
-    booking_id CHAR(6) NOT NULL,
-    room_id CHAR(6) NOT NULL,
+    booking_id UNSIGNED MEDIUMINT NOT NULL,
+    room_id UNSIGNED MEDIUMINT NOT NULL,
 
     PRIMARY KEY (booking_id, room_id)
 );
 
 CREATE TABLE books_transport (
-    booking_id CHAR(6) NOT NULL,
-    transport_id CHAR(6) NOT NULL,
+    booking_id UNSIGNED MEDIUMINT NOT NULL,
+    transport_id UNSIGNED MEDIUMINT NOT NULL,
 
     PRIMARY KEY (booking_id, transport_id)
 );
@@ -211,43 +213,17 @@ ALTER TABLE books_transport
     ADD CONSTRAINT books_transport_in_transport_bt
         FOREIGN KEY (transport_id) REFERENCES transport(transport_id);
 
-
 ALTER TABLE client
-    ADD CONSTRAINT valid_client_ids
-    /* Check if this needs to be in constraints section of ERD */
-        CHECK ((SUBSTR(client_id, 1, 1) = 'c')
-               AND (CAST(SUBSTR(client_id, 2, 5) AS UNSIGNED INT)
-                    BETWEEN 00000 AND 99999)),
-
-    ADD CONSTRAINT valid_email_address
-    /* Check if this needs to be in constraints section of ERD */
-        CHECK (email_address REGEXP '%@%\.%'),
-
     ADD CONSTRAINT mandatory_in_pays_with
         CHECK (client_id IN
-               (SELECT DISTINCT client_id FROM credit_card)),
-
-    /* Constraint c2: A client’s date of birth must be before the current date.
-       That is, the value of the DateOfBirth attribute of an instance of the Client
-       entity type must be before the current date.
-    */
-    ADD CONSTRAINT c2
-        CHECK (date_of_birth < CURRENT_DATE);
+               (SELECT DISTINCT client_id FROM credit_card));
 
 ALTER TABLE credit_card
     ADD CONSTRAINT valid_client_ids
     /* Check if this needs to be in constraints section of ERD */
         CHECK ((SUBSTR(client_id, 1, 1) = 'c'
                AND CAST(SUBSTR(client_id, 2, 5) AS UNSIGNED INT)
-                   BETWEEN 00000 AND 99999)),
-
-    ADD CONSTRAINT valid_credit_card_type
-        /* Check if this needs to be in constraints section of ERD */
-        CHECK (credit_card_type IN ('Visa Credit', 'Visa Debit', 'Mastercard Credit', 'Mastercard Debit')),
-
-        /* Constraint c3: A credit card’s start date must be before its end date. */
-        ADD CONSTRAINT c3
-        CHECK (start_date < end_date);
+                   BETWEEN 00000 AND 99999));
 
 ALTER TABLE accommodation
     ADD CONSTRAINT mandatory_in_contains
@@ -262,6 +238,8 @@ ALTER TABLE accommodation
     ADD CONSTRAINT valid_email_address
         /* Check if this needs to be in constraints section of ERD */
         CHECK (email_address REGEXP '%@%\.%');
+
+
 
 ALTER TABLE room
     ADD CONSTRAINT valid_room_ids
@@ -414,4 +392,48 @@ ALTER TABLE books_transport
         CHECK ((SUBSTR(booking_id, 1, 1) = 'b'
                AND CAST(SUBSTR(booking_id, 2, 5) AS UNSIGNED INT)
                    BETWEEN 00000 AND 99999));
+
+CREATE TRIGGER validate_client BEFORE INSERT ON client
+FOR EACH ROW
+BEGIN
+    -- Client IDs are 5-digit integers
+    IF (client_id NOT BETWEEN 00000 AND 99999)
+	THEN
+	    SIGNAL SQLSTATE 45001
+		SET MESSAGE_TEXT := 'Client ID invalid.';
+	END IF;
+
+    -- Email address must have the form <name>@<host>.<domain>
+	IF (email_address NOT REGEXP '%@%\.%')
+	THEN
+	    SIGNAL SQLSTATE '45002'
+		SET MESSAGE_TEXT := 'Email adddress invalid.';
+	END IF;
+
+    /* Constraint c2: A client’s date of birth must be before the current date.
+       That is, the value of the DateOfBirth attribute of an instance of the Client
+       entity type must be before the current date.
+    */
+    IF (date_of_birth > CURRENT_DATE)
+	THEN
+	    SIGNAL SQLSTATE '45003'
+		SET MESSAGE_TEXT := 'Date of birth must be before today.';
+	END IF;
+END
+
+-- Credit card type must be one of a finite list.
+-- Start date must be before end date.
+CREATE TRIGGER valid_credit_card BEFORE INSERT ON credit_card
+FOR EACH ROW
+BEGIN
+    IF (credit_card_type NOT IN ('Visa Credit', 'Visa Debit', 'Mastercard Credit', 'Mastercard Debit'))
+	THEN
+	    SIGNAL SQLSTATE '45004'
+		SET MESSAGE_TEXT := 'Unknown card type.';
+	ELSIF (start_date >= end_date)
+	THEN
+	    SIGNAL SQLSTATE '45005'
+		SET MESSAGE_TEXT 'Credit card start date must be before end date.';
+	ENDIF;
+END
 
