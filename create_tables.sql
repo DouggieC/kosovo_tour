@@ -213,87 +213,6 @@ ALTER TABLE books_transport
     ADD CONSTRAINT books_transport_in_transport_bt
         FOREIGN KEY (transport_id) REFERENCES transport(transport_id);
 
-ALTER TABLE client
-    ADD CONSTRAINT mandatory_in_pays_with
-        CHECK (client_id IN
-               (SELECT DISTINCT client_id FROM credit_card));
-
-ALTER TABLE credit_card
-    ADD CONSTRAINT valid_client_ids
-    /* Check if this needs to be in constraints section of ERD */
-        CHECK ((SUBSTR(client_id, 1, 1) = 'c'
-               AND CAST(SUBSTR(client_id, 2, 5) AS UNSIGNED INT)
-                   BETWEEN 00000 AND 99999));
-
-ALTER TABLE accommodation
-    ADD CONSTRAINT mandatory_in_contains
-        CHECK (accom_id IN (SELECT DISTINCT accom_id FROM room)),
-
-    ADD CONSTRAINT valid_acccom_ids
-        /* Check if this needs to be in constraints section of ERD */
-        CHECK ((SUBSTR(accom_id, 1, 1) = 'a'
-                AND CAST(SUBSTR(accom_id, 2, 5) AS UNSIGNED INT)
-                    BETWEEN 00000 AND 99999)),
-
-    ADD CONSTRAINT valid_email_address
-        /* Check if this needs to be in constraints section of ERD */
-        CHECK (email_address REGEXP '%@%\.%');
-
-
-
-ALTER TABLE room
-    ADD CONSTRAINT valid_room_ids
-        /* Check if this needs to be in constraints section of ERD */
-        CHECK ((SUBSTR(room_id, 1, 1) = 'r'
-                AND CAST(SUBSTR(room_id, 2, 5) AS UNSIGNED INT)
-                    BETWEEN 00000 AND 99999)),
-
-    ADD CONSTRAINT valid_room_types
-        /* Check if this needs to be in constraints section of ERD */
-        CHECK (room_type IN ('Single', 'Double', 'Twin', 'Suite', 'Apartment')),
-
-    ADD CONSTRAINT valid_room_capacities
-        /* Check if this needs to be in constraints section of ERD */
-        CHECK (capacity BETWEEN 1 AND 10),
-
-    ADD CONSTRAINT valid_room_price_basis
-    /* Check if this needs to be in constraints section of ERD */
-        CHECK (price_basis IN ('full board', 'half board', 'bed & breakfast', 'room only'));
-
-ALTER TABLE booking
-    ADD CONSTRAINT valid_booking_ids
-        /* Check if this needs to be in constraints section of ERD */
-        CHECK ((SUBSTR(booking_id, 1, 1) = 'b'
-                AND CAST(SUBSTR(booking_id, 2, 5) AS UNSIGNED INT)
-                    BETWEEN 00000 AND 99999)),
-
-    ADD CONSTRAINT valid_client_ids
-        /* Check if this needs to be in constraints section of ERD */
-        CHECK ((SUBSTR(client_id, 1, 1) = 'c'
-                AND CAST(SUBSTR(client_id, 2, 5) AS UNSIGNED INT)
-                    BETWEEN 00000 AND 99999)),
-
-    ADD CONSTRAINT valid_booking_type
-    /* Check if this needs to be in constraints section of ERD */
-    CHECK (VALUE IN ('Accommodation', 'Activity', 'Attraction', 'Transport')),
-
-    /* Constraint c1: A Booking entity must take part in exactly one occurrence of
-       either the BookingB, BookingBR or BookingBT relationship.
-    */
-    ADD CONSTRAINT c1
-        CHECK ((booking_type = 'Accommodation'
-               AND (booking_id IN
-                    (SELECT DISTINCT booking_id FROM books_room))
-              ) OR
-               (booking_type IN ('Activity', 'Attraction')
-               AND (booking_id IN
-                    (SELECT DISTINCT booking_id FROM books))
-              ) OR
-               (booking_type = 'Transport'
-               AND (booking_id IN
-                    (SELECT DISTINCT booking_id FROM books_transport))
-              ));
-
 ALTER TABLE activity
     ADD CONSTRAINT valid_thing_to_do_id
     /* Check if this needs to be in constraints section of ERD */
@@ -399,7 +318,7 @@ BEGIN
     -- Client IDs are 5-digit integers
     IF (client_id NOT BETWEEN 00000 AND 99999)
 	THEN
-	    SIGNAL SQLSTATE 45001
+	    SIGNAL SQLSTATE '45001'
 		SET MESSAGE_TEXT := 'Client ID invalid.';
 	END IF;
 
@@ -421,19 +340,185 @@ BEGIN
 	END IF;
 END
 
--- Credit card type must be one of a finite list.
--- Start date must be before end date.
-CREATE TRIGGER valid_credit_card BEFORE INSERT ON credit_card
+CREATE TRIGGER validate_credit_card BEFORE INSERT ON credit_card
 FOR EACH ROW
 BEGIN
+    -- Credit card type must be one of a finite list.
     IF (credit_card_type NOT IN ('Visa Credit', 'Visa Debit', 'Mastercard Credit', 'Mastercard Debit'))
 	THEN
 	    SIGNAL SQLSTATE '45004'
 		SET MESSAGE_TEXT := 'Unknown card type.';
-	ELSIF (start_date >= end_date)
+	END IF
+
+    -- Start date must be before end date.
+	IF (start_date >= end_date)
 	THEN
 	    SIGNAL SQLSTATE '45005'
 		SET MESSAGE_TEXT 'Credit card start date must be before end date.';
-	ENDIF;
+	END IF;
 END
 
+CREATE TRIGGER validate_accommodation BEFORE INSERT ON accommodation
+FOR EACH ROW
+BEGIN
+    -- Accommodation IDs are 5-digit integers
+    IF (client_id NOT BETWEEN 00000 AND 99999)
+	THEN
+	    SIGNAL SQLSTATE '45001'
+		SET MESSAGE_TEXT := 'Accommodation ID invalid.';
+	END IF;
+
+    -- Email address must have the form <name>@<host>.<domain>
+	IF (email_address NOT REGEXP '%@%\.%')
+	THEN
+	    SIGNAL SQLSTATE '45002'
+		SET MESSAGE_TEXT := 'Email adddress invalid.';
+	END IF;
+END
+
+CREATE TRIGGER validate_room BEFORE INSERT ON room
+FOR EACH ROW
+BEGIN
+    -- Room IDs are 5-digit integers
+    IF (room_id NOT BETWEEN 00000 AND 99999)
+	THEN
+	    SIGNAL SQLSTATE '45001'
+		SET MESSAGE_TEXT := 'Room ID invalid.';
+	END IF;
+
+    IF (room_type NOT IN ('Single', 'Double', 'Twin', 'Suite', 'Apartment'))
+	THEN
+	    SIGNAL SQLSTATE '45005'
+		SET MESSAGE_TEXT := 'Room type invalid.';
+	END IF;
+	
+	IF (capacity NOT BETWEEN 1 AND 10)
+	THEN
+	    SIGNAL SQLSTATE '45006';
+		SET MESSAGE_TEXT := 'Room capacity out of range.';
+	END IF;
+	
+	IF ((price_basis NOT IN ('full board', 'half board', 'bed & breakfast', 'room only'))
+	THEN
+	    SIGNAL SQLSTATE '45007';
+		SET MESSAGE_TEXT := 'Invalid room price basis.';
+	END IF;
+END
+
+CREATE TRIGGER validate_booking BEFORE INSERT ON booking
+FOR EACH ROW
+BEGIN
+    -- Booking IDs are 5-digit integers
+    IF (boooking_id NOT BETWEEN 00000 AND 99999)
+	THEN
+	    SIGNAL SQLSTATE '45001'
+		SET MESSAGE_TEXT := 'Booking ID invalid.';
+	END IF;
+
+    -- Client IDs are 5-digit integers
+    IF (client_id NOT BETWEEN 00000 AND 99999)
+	THEN
+	    SIGNAL SQLSTATE '45001'
+		SET MESSAGE_TEXT := 'Client ID invalid.';
+	END IF;
+
+    IF (booking_type NOT IN ('Accommodation', 'Activity', 'Attraction', 'Transport'))
+	THEN
+	    SIGNAL SQLSTATE '45008'
+		SET MESSAGE_TEXT := 'Invalid booking type';
+	END IF;
+	
+	/* Constraint c1: A Booking entity must take part in exactly one occurrence of
+       either the BookingB, BookingBR or BookingBT relationship.
+    */
+    IF (NOT ((booking_type = 'Accommodation'
+               AND (booking_id IN
+                    (SELECT DISTINCT booking_id FROM books_room))
+              ) OR
+               (booking_type IN ('Activity', 'Attraction')
+               AND (booking_id IN
+                    (SELECT DISTINCT booking_id FROM books))
+              ) OR
+               (booking_type = 'Transport'
+               AND (booking_id IN
+                    (SELECT DISTINCT booking_id FROM books_transport))
+              ))
+		)
+	THEN
+	    SIGNAL SQLSTATE '45009'
+		SET MESSAGE_TEXT := 'Booking incorrect.';
+	END IF;
+END
+
+
+/*
+ALTER TABLE client
+    ADD CONSTRAINT mandatory_in_pays_with
+        CHECK (client_id IN
+               (SELECT DISTINCT client_id FROM credit_card));
+
+ALTER TABLE credit_card
+    ADD CONSTRAINT valid_client_ids
+    -- Check if this needs to be in constraints section of ERD
+        CHECK ((SUBSTR(client_id, 1, 1) = 'c'
+               AND CAST(SUBSTR(client_id, 2, 5) AS UNSIGNED INT)
+                   BETWEEN 00000 AND 99999));
+
+ALTER TABLE accommodation
+    ADD CONSTRAINT mandatory_in_contains
+        CHECK (accom_id IN (SELECT DISTINCT accom_id FROM room)),
+
+ALTER TABLE room
+    ADD CONSTRAINT valid_room_ids
+        -- Check if this needs to be in constraints section of ERD
+        CHECK ((SUBSTR(room_id, 1, 1) = 'r'
+                AND CAST(SUBSTR(room_id, 2, 5) AS UNSIGNED INT)
+                    BETWEEN 00000 AND 99999)),
+
+    ADD CONSTRAINT valid_room_types
+        -- Check if this needs to be in constraints section of ERD
+        CHECK (room_type IN ('Single', 'Double', 'Twin', 'Suite', 'Apartment')),
+
+    ADD CONSTRAINT valid_room_capacities
+        -- Check if this needs to be in constraints section of ERD
+        CHECK (capacity BETWEEN 1 AND 10),
+
+    ADD CONSTRAINT valid_room_price_basis
+        -- Check if this needs to be in constraints section of ERD
+        CHECK (price_basis IN ('full board', 'half board', 'bed & breakfast', 'room only'));
+
+ALTER TABLE booking
+    ADD CONSTRAINT valid_booking_ids
+        -- Check if this needs to be in constraints section of ERD
+        CHECK ((SUBSTR(booking_id, 1, 1) = 'b'
+                AND CAST(SUBSTR(booking_id, 2, 5) AS UNSIGNED INT)
+                    BETWEEN 00000 AND 99999)),
+
+    ADD CONSTRAINT valid_client_ids
+        -- Check if this needs to be in constraints section of ERD
+        CHECK ((SUBSTR(client_id, 1, 1) = 'c'
+                AND CAST(SUBSTR(client_id, 2, 5) AS UNSIGNED INT)
+                    BETWEEN 00000 AND 99999)),
+
+    ADD CONSTRAINT valid_booking_type
+        -- Check if this needs to be in constraints section of ERD
+        CHECK (VALUE IN ('Accommodation', 'Activity', 'Attraction', 'Transport')),
+
+    -- Constraint c1: A Booking entity must take part in exactly one occurrence of
+    -- either the BookingB, BookingBR or BookingBT relationship.
+    ADD CONSTRAINT c1
+        CHECK ((booking_type = 'Accommodation'
+               AND (booking_id IN
+                    (SELECT DISTINCT booking_id FROM books_room))
+              ) OR
+               (booking_type IN ('Activity', 'Attraction')
+               AND (booking_id IN
+                    (SELECT DISTINCT booking_id FROM books))
+              ) OR
+               (booking_type = 'Transport'
+               AND (booking_id IN
+                    (SELECT DISTINCT booking_id FROM books_transport))
+              ));
+
+
+*/
