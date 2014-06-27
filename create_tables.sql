@@ -15,6 +15,8 @@
 * 2.0: Hefty rewrite to fully implement changes mentioned
 *      in 1.1 & 1.2 above.
 *      Also added error handling
+* 2.1: Don't use MYSQL_ERRNO for user-defined errors. Changed to
+*      Use SQLSTATE '45xxx' instead.
 **********************************************************
 */
 
@@ -250,9 +252,8 @@ BEGIN
 		WHEN 'b' THEN SET id_name = 'Booking';
 		ELSE
 		    BEGIN
-			    SIGNAL SQLSTATE = '45000'
-				SET MESSAGE_TEXT = CONCAT(id_name, ' ID invalid.'),
-				    MYSQL_ERRNO = 1001;
+			    SIGNAL SQLSTATE = '45001'
+				SET MESSAGE_TEXT = CONCAT(id_name, ' ID invalid.');
 			    -- Old way. Shouldn't be necessary any more
 				-- CALL invalid_id_prefix(CONCAT(id_name, ' ID invalid.'));
 				-- RETURN 1;
@@ -261,9 +262,8 @@ BEGIN
 		
 	IF ((CAST(id_suff) AS INT) NOT BETWEEN 00000 AND 99999)
 	THEN
-	    SIGNAL SQLSTATE = '45000'
-		SET MESSAGE_TEXT = CONCAT(id_name, ' ID invalid.'),
-		    MYSQL_ERRNO = 1001;
+	    SIGNAL SQLSTATE = '4500`'
+		SET MESSAGE_TEXT = CONCAT(id_name, ' ID invalid.');
 		-- Old way. Shouldn't be necessary any more
 		-- CALL invalid_id_suffix;
 		-- RETURN 1;
@@ -276,9 +276,8 @@ CREATE FUNCTION validate_email (email_addr VARCHAR(40)) RETURNS INT
 BEGIN
 	IF (email_address NOT REGEXP '%@%\.%')
 	THEN
-	    SIGNAL SQLSTATE = '45000'
-		SET MESSAGE_TEXT = 'Invalid email address.',
-		    MYSQL_ERRNO = 1002;
+	    SIGNAL SQLSTATE = '45002'
+		SET MESSAGE_TEXT = 'Invalid email address.';
 		-- Old way. Shouldn't be necessary any more
 		-- CALL invalid_email_address;
 		-- RETURN 1;
@@ -301,9 +300,8 @@ BEGIN
     */
     IF (my_dob > CURRENT_DATE)
 	THEN
-	    SIGNAL SQLSTATE = '45000'
-		SET MESSAGE_TEXT = 'Invalid date of birth.',
-		    MYSQL_ERRNO = 1003;
+	    SIGNAL SQLSTATE = '45003'
+		SET MESSAGE_TEXT = 'Invalid date of birth.';
 		-- Old way. Shouldn't be necessary any more
 		-- CALL invalid_date_of_birth;
 		-- RETURN 1;
@@ -317,9 +315,8 @@ BEGIN
     -- Start date must be before end date.
 	IF (my_start_date >= my_end_date)
 	THEN
-	    SIGNAL SQLSTATE = '45000'
-		SET MESSAGE_TEXT = 'Invalid credit card date range.',
-		    MYSQL_ERRNO = 1005;
+	    SIGNAL SQLSTATE = '45005'
+		SET MESSAGE_TEXT = 'Invalid credit card date range.';
 		-- Old way. Shouldn't be necessary any more
 		-- CALL invalid_credit_card_date_range;
 		-- RETURN 1;
@@ -346,9 +343,8 @@ BEGIN
 
 	IF (my_capacity NOT BETWEEN 1 AND 10)
 	THEN
-	    SIGNAL SQLSTATE = '45000'
-		SET MESSAGE_TEXT = 'Room capacity out of range.',
-		    MYSQL_ERRNO = 1007;
+	    SIGNAL SQLSTATE = '45007'
+		SET MESSAGE_TEXT = 'Room capacity out of range.';
 		-- Old way. Shouldn't be necessary any more
 		-- CALL room_capacity_out_of_range();
 		-- RETURN 1;
@@ -382,9 +378,8 @@ BEGIN
               ))
 		)
 	THEN
-	    SIGNAL SQLSTATE = '45000'
-		SET MESSAGE_TEXT = 'Invalid credit card date range.',
-		    MYSQL_ERRNO = 1010;
+	    SIGNAL SQLSTATE = '45010'
+		SET MESSAGE_TEXT = 'Invalid credit card date range.';
 		-- Old way. Shouldn't be necessary any more
 		-- CALL booking_incorrect();
 		-- RETURN 1;
@@ -408,9 +403,8 @@ BEGIN
 	    -- NOT NULL constraint for activity type
 		IF (my_activity_type IS NULL)
 		THEN
-		    SIGNAL SQLSTATE = '45000'
-		    SET MESSAGE_TEXT = 'Invalid activity type.',
-		    MYSQL_ERRNO = 1011;
+		    SIGNAL SQLSTATE = '45011'
+		    SET MESSAGE_TEXT = 'Invalid activity type.';
 		    -- Old way. Shouldn't be necessary any more
 		    -- CALL null_activity_type();
 			-- RETURN 1;
@@ -419,9 +413,8 @@ BEGIN
 	    -- NOT NULL constraint for start date and time
 		IF (my_start_date IS NULL OR my_start_time IS NULL)
 		THEN
-		    SIGNAL SQLSTATE = '45000'
-		    SET MESSAGE_TEXT = 'Invalid start date / time.',
-		    MYSQL_ERRNO = 1013;
+		    SIGNAL SQLSTATE = '45013'
+		    SET MESSAGE_TEXT = 'Invalid start date / time.';
 	    	-- Old way. Shouldn't be necessary any more
     		-- CALL null_start_date_time();
 			-- RETURN 1;
@@ -434,9 +427,8 @@ BEGIN
                  (my_start_time < my_end_time)))
     		)
 	    THEN
-	        SIGNAL SQLSTATE = '45000'
-    		SET MESSAGE_TEXT = 'Invalid start date / time.',
-		    MYSQL_ERRNO = 1013;
+	        SIGNAL SQLSTATE = '45013'
+    		SET MESSAGE_TEXT = 'Invalid start date / time.';
 	    	-- Old way. Shouldn't be necessary any more
 		    -- CALL invalid_activity_start_date_time();
 			-- RETURN 1;
@@ -446,9 +438,8 @@ BEGIN
 	    -- NOT NULL constraint for attraction type
 		IF (my_attraction_type IS NULL)
 		THEN
-		    SIGNAL SQLSTATE = '45000'
-    		SET MESSAGE_TEXT = 'Invalid attraction type.',
-		    MYSQL_ERRNO = 1014;
+		    SIGNAL SQLSTATE = '45014'
+    		SET MESSAGE_TEXT = 'Invalid attraction type.';
 	    	-- Old way. Shouldn't be necessary any more
 		    -- CALL null_attraction_type();
 			-- RETURN 1;
@@ -457,17 +448,15 @@ BEGIN
 	    -- NOT NULL constraint for opening hours
 	    IF (my_opening_hours IS NULL)
 		THEN
-		    SIGNAL SQLSTATE = '45000'
-    		SET MESSAGE_TEXT = 'Invalid opening hours.',
-		    MYSQL_ERRNO = 1016;
+		    SIGNAL SQLSTATE = '45016'
+    		SET MESSAGE_TEXT = 'Invalid opening hours.';
 	    	-- Old way. Shouldn't be necessary any more
 		    -- CALL null_opening_hours();
 			-- RETURN 1;
 		END IF;
 	ELSE
-	    SIGNAL SQLSTATE = '45000'
-		SET MESSAGE_TEXT = 'Invalid attraction / activity.',
-		    MYSQL_ERRNO = 1017;
+	    SIGNAL SQLSTATE = '45017'
+		SET MESSAGE_TEXT = 'Must be either activity or attraction.';
 		-- Old way. Shouldn't be necessary any more
 		-- CALL invalid_thing_to_do_type();
 		-- RETURN 1;
