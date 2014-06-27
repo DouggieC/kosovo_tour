@@ -1,7 +1,7 @@
 /*
-********************************
-* Name:    create_tables.sql 
-* Author:  Doug Cooper 
+**********************************************************
+* Name:    create_tables.sql
+* Author:  Doug Cooper
 * Version: 1.2
 *
 * Version History
@@ -11,17 +11,51 @@
 *      to table definition instead.
 * 1.2: CHECK constraints unsupported too.
 *      Rewritten to use triggers instead.
-*********************************
+*      Enumerated lists added as ENUMs where appropriate.
+* 2.0: Hefty rewrite to fully implement changes mentioned
+*      in 1.1 & 1.2 above.
+*      Also added error handling
+**********************************************************
 */
 
--- What will we do with this?
--- CREATE DOMAIN picture_galleries
+DROP FUNCTION IF EXISTS validate_id;
+DROP FUNCTION IF EXISTS validate_email;
+DROP FUNCTION IF EXISTS validate_client;
+DROP FUNCTION IF EXISTS validate_credit_card;
+DROP FUNCTION IF EXISTS validate_accommodation;
+DROP FUNCTION IF EXISTS validate_room;
+DROP FUNCTION IF EXISTS validate_booking;
+DROP FUNCTION IF EXISTS validate_thing_to_do;
+DROP FUNCTION IF EXISTS validate_transport;
+DROP FUNCTION IF EXISTS validate_books;
+DROP FUNCTION IF EXISTS validate_books_room;
+DROP FUNCTION IF EXISTS validate_books_transport;
+
+DROP TRIGGER IF EXISTS validate_client_on_insert;
+DROP TRIGGER IF EXISTS validate_client_on_update;
+DROP TRIGGER IF EXISTS validate_credit_card_on_insert;
+DROP TRIGGER IF EXISTS validate_credit_card_on_update;
+DROP TRIGGER IF EXISTS validate_accommodation_on_insert;
+DROP TRIGGER IF EXISTS validate_accommodation_on_update;
+DROP TRIGGER IF EXISTS validate_room_on_insert;
+DROP TRIGGER IF EXISTS validate_room_on_update;
+DROP TRIGGER IF EXISTS validate_booking_on_insert;
+DROP TRIGGER IF EXISTS validate_booking_on_update;
+DROP TRIGGER IF EXISTS validate_thing_to_do_on_insert;
+DROP TRIGGER IF EXISTS validate_thing_to_do_on_update;
+DROP TRIGGER IF EXISTS validate_transport_on_insert;
+DROP TRIGGER IF EXISTS validate_transport_on_update;
+DROP TRIGGER IF EXISTS validate_books_on_insert;
+DROP TRIGGER IF EXISTS validate_books_on_update;
+DROP TRIGGER IF EXISTS validate_books_room_on_insert;
+DROP TRIGGER IF EXISTS validate_books_room_on_update;
+DROP TRIGGER IF EXISTS validate_books_transport_on_insert;
+DROP TRIGGER IF EXISTS validate_books_transport_on_update;
 
 DROP TABLE IF EXISTS books_transport;
 DROP TABLE IF EXISTS books_room;
 DROP TABLE IF EXISTS books;
-DROP TABLE IF EXISTS attraction;
-DROP TABLE IF EXISTS activity;
+DROP TABLE IF EXISTS thing_to_do;
 DROP TABLE IF EXISTS transport;
 DROP TABLE IF EXISTS booking;
 DROP TABLE IF EXISTS room;
@@ -30,7 +64,7 @@ DROP TABLE IF EXISTS credit_card;
 DROP TABLE IF EXISTS client;
 
 CREATE TABLE client (
-    client_id UNSIGNED MEDIUMINT NOT NULL,
+    client_id CHAR(6) NOT NULL,
     first_name VARCHAR(20) NOT NULL,
     last_name VARCHAR(20) NOT NULL,
     address VARCHAR(200) NOT NULL,
@@ -46,7 +80,7 @@ CREATE TABLE credit_card (
     first_name VARCHAR(20) NOT NULL,
     last_name VARCHAR(20) NOT NULL,
     address VARCHAR(200) NOT NULL,
-    card_type VARCHAR(17) NOT NULL,
+    card_type ENUM('Visa Credit', 'Visa Debit', 'Mastercard Credit', 'Mastercard Debit') NOT NULL,
     start_date DATE,
     end_date DATE NOT NULL,
     issue_no NUMERIC(3,0),
@@ -57,14 +91,14 @@ CREATE TABLE credit_card (
 );
 
 CREATE TABLE accommodation (
-    accom_id UNSIGNED MEDIUMINT NOT NULL,
+    accom_id CHAR(6) NOT NULL,
     name VARCHAR(100) NOT NULL,
     address VARCHAR(200) NOT NULL,
     tel_no VARCHAR(15),
     email_address VARCHAR(40) NOT NULL,
     description VARCHAR(1000),
     website_url VARCHAR(200),
-    -- picture_gallery picture_galleries,
+    picture MEDIUMBLOB,
 
     PRIMARY KEY (accom_id)
 );
@@ -72,20 +106,20 @@ CREATE TABLE accommodation (
 CREATE TABLE room (
     room_id CHAR(6) NOT NULL,
     description VARCHAR(1000),
-    room_type VARCHAR(9) NOT NULL,
+    room_type ENUM('Single', 'Double', 'Twin', 'Suite', 'Apartment') NOT NULL,
     capacity SMALLINT NOT NULL,
     price DECIMAL(6,2) NOT NULL,
-    price_basis VARCHAR(15) NOT NULL,
+    price_basis ENUM('full board', 'half board', 'bed & breakfast', 'room only') NOT NULL,
     accom_id CHAR(6) NOT NULL,
 
     PRIMARY KEY (room_id)
 );
 
 CREATE TABLE booking (
-    booking_id UNSIGNED MEDIUMINT NOT NULL,
+    booking_id CHAR(6) NOT NULL,
     booking_date DATE NOT NULL,
     booking_time TIME NOT NULL,
-    booking_type VARCHAR(13) NOT NULL,
+    booking_type ENUM('Accommodation', 'Activity', 'Attraction', 'Transport') NOT NULL,
     start_date DATE NOT NULL,
     start_time TIME NOT NULL,
     end_date DATE,
@@ -98,79 +132,66 @@ CREATE TABLE booking (
 );
 
 CREATE TABLE transport (
-    transport_id UNSIGNED MEDIUMINT NOT NULL,
+    transport_id CHAR(6) NOT NULL,
     name VARCHAR(100) NOT NULL,
     address VARCHAR(200),
     tel_no VARCHAR(15),
     email_address VARCHAR(40) NOT NULL,
     website_url VARCHAR(200),
     description VARCHAR(1000),
-    -- picture_gallery picture_galleries,
-    transport_type VARCHAR(8) NOT NULL,
+    picture MEDIUMBLOB,
+    transport_type ENUM('Plane', 'Bus', 'Train', 'Taxi', 'Hire Car') NOT NULL,
     price DECIMAL(6,2) NOT NULL,
     price_basis VARCHAR(15) NOT NULL,
 
     PRIMARY KEY (transport_id)
 );
 
-CREATE TABLE activity (
-    activity_id UNSIGNED MEDIUMINT NOT NULL,
+CREATE TABLE thing_to_do (
+    thing_to_do_id CHAR(6) NOT NULL,
+    thing_type ENUM('Activity', 'Accommodation') NOT NULL,
     name VARCHAR(100) NOT NULL,
     address VARCHAR(200),
     tel_no VARCHAR(15),
     email_address VARCHAR(40) NOT NULL,
     website_url VARCHAR(200),
     description VARCHAR(1000),
-    -- picture_gallery picture_galleries,
-    activity_type VARCHAR(13) NOT NULL,
+    picture MEDIUMBLOB,
+    price DECIMAL(6,2) NOT NULL,
+    price_basis ENUM('Per Day', 'Per Person', 'Per Person Per Day', 'Adult', 'Child', 'Concession') NOT NULL,
+
+	-- Just for activities
+    activity_type ENUM('Cultural', 'Hiking', 'Climbing', 'Winter Sports'), -- NOT NULL
     start_point VARCHAR(200),
-    start_date DATE NOT NULL,
-    start_time TIME NOT NULL,
+    start_date DATE,
+    start_time TIME,
     end_date DATE,
     end_time TIME,
-    price DECIMAL(6,2) NOT NULL,
-    price_basis VARCHAR(18) NOT NULL,
 
-    PRIMARY KEY (activity_id)
-);
+	-- Just for attractions
+    attraction_type ENUM('Cultural'), -- NOT NULL,
+    opening_hours VARCHAR(100), -- NOT NULL,
 
-CREATE TABLE attraction (
-    attraction_id UNSIGNED MEDIUMINT NOT NULL,
-    name VARCHAR(100) NOT NULL,
-    address VARCHAR(200),
-    tel_no VARCHAR(15),
-    email_address VARCHAR(40) NOT NULL,
-    website_url VARCHAR(200),
-    description VARCHAR(1000),
-    -- picture_gallery picture_galleries,
-    attraction_type VARCHAR(8) NOT NULL,
-    opening_hours VARCHAR(100) NOT NULL,
-    price DECIMAL(6,2) NOT NULL,
-    price_basis VARCHAR(10) NOT NULL,
-
-    PRIMARY KEY (attraction_id)
+	PRIMARY KEY (thing_to_do_id)
 );
 
 CREATE TABLE books (
-    
-    /* Check how to  implement supertypes */
-    
-    booking_id UNSIGNED MEDIUMINT NOT NULL,
-    thing_to_do_id UNSIGNED MEDIUMINT NOT NULL,
+    booking_id CHAR(6) NOT NULL,
+    thing_to_do_id CHAR(6) NOT NULL,
 
     PRIMARY KEY (booking_id, thing_to_do_id)
 );
 
 CREATE TABLE books_room (
-    booking_id UNSIGNED MEDIUMINT NOT NULL,
-    room_id UNSIGNED MEDIUMINT NOT NULL,
+    booking_id CHAR(6) NOT NULL,
+    room_id CHAR(6) NOT NULL,
 
     PRIMARY KEY (booking_id, room_id)
 );
 
 CREATE TABLE books_transport (
-    booking_id UNSIGNED MEDIUMINT NOT NULL,
-    transport_id UNSIGNED MEDIUMINT NOT NULL,
+    booking_id CHAR(6) NOT NULL,
+    transport_id CHAR(6) NOT NULL,
 
     PRIMARY KEY (booking_id, transport_id)
 );
@@ -194,10 +215,8 @@ ALTER TABLE books
     ADD CONSTRAINT books_in_booking_b
         FOREIGN KEY (booking_id) REFERENCES booking(booking_id);
 
-    /* Not sure what to do here
     ADD CONSTRAINT books_in_thing_to_do_b
-        FOREIGN KEY (thing_to_do_id) REFERENCES -- activity or attraction
-    */
+        FOREIGN KEY (thing_to_do_id) REFERENCES thing_to_do
 
 ALTER TABLE books_room
     ADD CONSTRAINT books_room_in_booking_br
@@ -213,457 +232,412 @@ ALTER TABLE books_transport
     ADD CONSTRAINT books_transport_in_transport_bt
         FOREIGN KEY (transport_id) REFERENCES transport(transport_id);
 
-ALTER TABLE books_room
-    ADD CONSTRAINT valid_room_ids
-    /* Check if this needs to be in constraints section of ERD */
-        CHECK ((SUBSTR(room_id, 1, 1) = 'r'
-               AND CAST(SUBSTR(room_id, 2, 5) AS UNSIGNED INT)
-                   BETWEEN 00000 AND 99999)),
-
-    ADD CONSTRAINT valid_booking_ids
-    /* Check if this needs to be in constraints section of ERD */
-        CHECK ((SUBSTR(booking_id, 1, 1) = 'b'
-               AND CAST(SUBSTR(booking_id, 2, 5) AS UNSIGNED INT)
-                   BETWEEN 00000 AND 99999));
-
-ALTER TABLE books_transport
-    ADD CONSTRAINT valid_transport_id
-    /* Check if this needs to be in constraints section of ERD */
-        CHECK ((SUBSTR(transport_id, 1, 1) = 't'
-               AND CAST(SUBSTR(transport_id, 2, 5) AS UNSIGNED INT)
-                   BETWEEN 00000 AND 99999)),
-
-    ADD CONSTRAINT valid_booking_ids
-    /* Check if this needs to be in constraints section of ERD */
-        CHECK ((SUBSTR(booking_id, 1, 1) = 'b'
-               AND CAST(SUBSTR(booking_id, 2, 5) AS UNSIGNED INT)
-                   BETWEEN 00000 AND 99999));
-
-CREATE FUNCTION validate_id (id MEDIUMINT, name VARCHAR(13)) RETURNS MEDIUMINT
+CREATE FUNCTION validate_id (id CHAR(6)) RETURNS INT
 BEGIN
-    DECLARE result_code MEDIUMINT;
-    -- IDs are 5-digit integers
-    IF (id NOT BETWEEN 00000 AND 99999)
-	THEN
-	    result_code = 45001
-		SET MESSAGE_TEXT := CONCAT(name, ' ID invalid.');
-	ELSE
-	    result_code = 00000
-	END IF;
+    DECLARE id_pref CHAR(1);
+	DECLARE id_suff CHAR(5);
+	DECLARE id_name VARCHAR(25);
 
-	SIGNAL SQLSTATE CAST(@result_code AS CHAR(5))
-	RETURN result_code;
+    SET id_pref = SUBSTR(id,1,1);
+	SET id_suff = SUBSTR(id,2,5);
+	
+	CASE id_pref
+	    WHEN 'c' THEN SET id_name = 'Client';
+		WHEN 'a' THEN SET id_name = 'Accommodation';
+		WHEN 'r' THEN SET id_name = 'Room';
+		WHEN 't' THEN SET id_name = 'Activity or attraction';
+		WHEN 'v' THEN SET id_name = 'Transport';
+		WHEN 'b' THEN SET id_name = 'Booking';
+		ELSE
+		    BEGIN
+			    SIGNAL SQLSTATE = '45000'
+				SET MESSAGE_TEXT = CONCAT(id_name, ' ID invalid.'),
+				    MYSQL_ERRNO = 1001;
+			    -- Old way. Shouldn't be necessary any more
+				-- CALL invalid_id_prefix(CONCAT(id_name, ' ID invalid.'));
+				-- RETURN 1;
+			END;
+	END CASE;
+		
+	IF ((CAST(id_suff) AS INT) NOT BETWEEN 00000 AND 99999)
+	THEN
+	    SIGNAL SQLSTATE = '45000'
+		SET MESSAGE_TEXT = CONCAT(id_name, ' ID invalid.'),
+		    MYSQL_ERRNO = 1001;
+		-- Old way. Shouldn't be necessary any more
+		-- CALL invalid_id_suffix;
+		-- RETURN 1;
+	END;
+	
+    RETURN 0;
 END
 
-CREATE TRIGGER validate_client BEFORE INSERT ON client
-FOR EACH ROW
+CREATE FUNCTION validate_email (email_addr VARCHAR(40)) RETURNS INT
 BEGIN
-    -- Client IDs are 5-digit integers
-    CALL validate_id(client_id, 'Client');
-	-- IF (client_id NOT BETWEEN 00000 AND 99999)
-	-- THEN
-	--     SIGNAL SQLSTATE '45001'
-	-- 	SET MESSAGE_TEXT := 'Client ID invalid.';
-	-- END IF;
-
-    -- Email address must have the form <name>@<host>.<domain>
 	IF (email_address NOT REGEXP '%@%\.%')
 	THEN
-	    SIGNAL SQLSTATE '45002'
-		SET MESSAGE_TEXT := 'Email adddress invalid.';
+	    SIGNAL SQLSTATE = '45000'
+		SET MESSAGE_TEXT = 'Invalid email address.',
+		    MYSQL_ERRNO = 1002;
+		-- Old way. Shouldn't be necessary any more
+		-- CALL invalid_email_address;
+		-- RETURN 1;
 	END IF;
+	
+	RETURN 0;
+END
+
+CREATE FUNCTION validate_client (my_client_id CHAR(6), my_email_addr VARCHAR(40), my_dob DATE) RETURNS INT
+BEGIN
+    -- Client IDs are c99999
+    CALL validate_id(my_client_id);
+
+    -- Email address must have the form <name>@<host>.<domain>
+	CALL validate_email(my_email_addr);
 
     /* Constraint c2: A client’s date of birth must be before the current date.
-               That is, the value of the DateOfBirth attribute of an instance of the Client
-               entity type must be before the current date.
-          */
-    IF (date_of_birth > CURRENT_DATE)
+       That is, the value of the DateOfBirth attribute of an instance of the Client
+       entity type must be before the current date.
+    */
+    IF (my_dob > CURRENT_DATE)
 	THEN
-	    SIGNAL SQLSTATE '45003'
-		SET MESSAGE_TEXT := 'Date of birth must be before today.';
+	    SIGNAL SQLSTATE = '45000'
+		SET MESSAGE_TEXT = 'Invalid date of birth.',
+		    MYSQL_ERRNO = 1003;
+		-- Old way. Shouldn't be necessary any more
+		-- CALL invalid_date_of_birth;
+		-- RETURN 1;
 	END IF;
+	
+	RETURN 0;
 END
 
-CREATE TRIGGER validate_credit_card BEFORE INSERT ON credit_card
-FOR EACH ROW
+CREATE FUNCTION validate_credit_card (my_start_date DATE, my_end_date DATE) RETURNS INT
 BEGIN
-    -- Credit card type must be one of a finite list.
-    IF (credit_card_type NOT IN ('Visa Credit', 'Visa Debit', 'Mastercard Credit', 'Mastercard Debit'))
-	THEN
-	    SIGNAL SQLSTATE '45004'
-		SET MESSAGE_TEXT := 'Unknown card type.';
-	END IF
-
     -- Start date must be before end date.
-	IF (start_date >= end_date)
+	IF (my_start_date >= my_end_date)
 	THEN
-	    SIGNAL SQLSTATE '45005'
-		SET MESSAGE_TEXT 'Credit card start date must be before end date.';
+	    SIGNAL SQLSTATE = '45000'
+		SET MESSAGE_TEXT = 'Invalid credit card date range.',
+		    MYSQL_ERRNO = 1005;
+		-- Old way. Shouldn't be necessary any more
+		-- CALL invalid_credit_card_date_range;
+		-- RETURN 1;
 	END IF;
+	
+	RETURN 0;
 END
 
-CREATE TRIGGER validate_accommodation BEFORE INSERT ON accommodation
-FOR EACH ROW
+CREATE FUNCTION validate_accommodation(my_accom_id CHAR(6), my_email_addr VARCHAR(40)) RETURNS INT
 BEGIN
-    -- Accommodation IDs are 5-digit integers
-    CALL validate_id(accom_id, 'Accommodation');
-	-- IF (accom_id NOT BETWEEN 00000 AND 99999)
-	-- THEN
-	--     SIGNAL SQLSTATE '45001'
-	-- 	SET MESSAGE_TEXT := 'Accommodation ID invalid.';
-	-- END IF;
+    -- Accommodation IDs are a99999
+    CALL validate_id(my_accom_id);
 
     -- Email address must have the form <name>@<host>.<domain>
-	IF (email_address NOT REGEXP '%@%\.%')
-	THEN
-	    SIGNAL SQLSTATE '45002'
-		SET MESSAGE_TEXT := 'Email adddress invalid.';
-	END IF;
+	CALL validate_email(my_email_addr);
+	
+	RETURN 0;
 END
 
-CREATE TRIGGER validate_room BEFORE INSERT ON room
-FOR EACH ROW
+CREATE FUNCTION validate_room (my_room_id CHAR(6), my_capacity SMALLINT) RETURNS INT
 BEGIN
-    -- Room IDs are 5-digit integers
-	CALL validate_id(room_id, 'Room');
-    -- IF (room_id NOT BETWEEN 00000 AND 99999)
-	-- THEN
-	--     SIGNAL SQLSTATE '45001'
-	-- 	SET MESSAGE_TEXT := 'Room ID invalid.';
-	-- END IF;
+    -- Room IDs are r99999
+	CALL validate_id(my_room_id);
 
-    IF (room_type NOT IN ('Single', 'Double', 'Twin', 'Suite', 'Apartment'))
+	IF (my_capacity NOT BETWEEN 1 AND 10)
 	THEN
-	    SIGNAL SQLSTATE '45005'
-		SET MESSAGE_TEXT := 'Room type invalid.';
+	    SIGNAL SQLSTATE = '45000'
+		SET MESSAGE_TEXT = 'Room capacity out of range.',
+		    MYSQL_ERRNO = 1007;
+		-- Old way. Shouldn't be necessary any more
+		-- CALL room_capacity_out_of_range();
+		-- RETURN 1;
 	END IF;
-	
-	IF (capacity NOT BETWEEN 1 AND 10)
-	THEN
-	    SIGNAL SQLSTATE '45006';
-		SET MESSAGE_TEXT := 'Room capacity out of range.';
-	END IF;
-	
-	IF ((price_basis NOT IN ('full board', 'half board', 'bed & breakfast', 'room only'))
-	THEN
-	    SIGNAL SQLSTATE '45007';
-		SET MESSAGE_TEXT := 'Invalid room price basis.';
-	END IF;
+
+    RETURN 0;
 END
 
-CREATE TRIGGER validate_booking BEFORE INSERT ON booking
-FOR EACH ROW
+CREATE FUNCTION validate_booking (my_booking_id CHAR(6), my_client_id CHAR(6), my_booking_type VARCHAR(13)) RETURNS INT
 BEGIN
-    -- Booking IDs are 5-digit integers
-    CALL validate_id(booking_id, 'Booking');
-	-- IF (boooking_id NOT BETWEEN 00000 AND 99999)
-	-- THEN
-	--     SIGNAL SQLSTATE '45001'
-	-- 	SET MESSAGE_TEXT := 'Booking ID invalid.';
-	-- END IF;
+    -- Booking IDs are b99999
+    CALL validate_id(my_booking_id);
 
-    -- Client IDs are 5-digit integers
-    CALL validate_id(client_id, 'Client');
-	-- IF (client_id NOT BETWEEN 00000 AND 99999)
-	-- THEN
-	--     SIGNAL SQLSTATE '45001'
-	-- 	SET MESSAGE_TEXT := 'Client ID invalid.';
-	-- END IF;
+    -- Client IDs are c99999
+    CALL validate_id(my_client_id);
 
-    IF (booking_type NOT IN ('Accommodation', 'Activity', 'Attraction', 'Transport'))
-	THEN
-	    SIGNAL SQLSTATE '45008'
-		SET MESSAGE_TEXT := 'Invalid booking type';
-	END IF;
-	
-	/* Constraint c1: A Booking entity must take part in exactly one occurrence of
-               either the BookingB, BookingBR or BookingBT relationship.
-          */
-    IF (NOT ((booking_type = 'Accommodation'
-               AND (booking_id IN
+    /* Constraint c1: A Booking entity must take part in exactly one occurrence of
+       either the BookingB, BookingBR or BookingBT relationship.
+    */
+    IF (NOT ((my_booking_type = 'Accommodation'
+               AND (my_booking_id IN
                     (SELECT DISTINCT booking_id FROM books_room))
               ) OR
-               (booking_type IN ('Activity', 'Attraction')
-               AND (booking_id IN
+               (my_booking_type IN ('Activity', 'Attraction')
+               AND (my_booking_id IN
                     (SELECT DISTINCT booking_id FROM books))
               ) OR
-               (booking_type = 'Transport'
+               (my_booking_type = 'Transport'
                AND (booking_id IN
                     (SELECT DISTINCT booking_id FROM books_transport))
               ))
 		)
 	THEN
-	    SIGNAL SQLSTATE '45009'
-		SET MESSAGE_TEXT := 'Booking incorrect.';
+	    SIGNAL SQLSTATE = '45000'
+		SET MESSAGE_TEXT = 'Invalid credit card date range.',
+		    MYSQL_ERRNO = 1010;
+		-- Old way. Shouldn't be necessary any more
+		-- CALL booking_incorrect();
+		-- RETURN 1;
 	END IF;
+	
+	RETURN 0;
 END
 
-CREATE TRIGGER validate_activity BEFORE INSERT ON activity
-FOR EACH ROW
+CREATE FUNCTION validate_thing_to_do (my_thing_to_do_id CHAR(6), my_email_addr VARCHAR(40), my_thing_type VARCHAR(10),
+                                      my_activity_type VARCHAR(13), my_attraction_type VARCHAR(8) my_start_date DATE,
+									  my_start_time TIME, my_end_date DATE, my_end_time TIME, my_opening_hours VARCHAR(100)) RETURNS INT
 BEGIN
-    -- Activity IDs are 5-digit integers
-    CALL validate_id(activity_id, 'Activity');
-	-- IF (activity_id NOT BETWEEN 00000 AND 99999)
-	-- THEN
-	--     SIGNAL SQLSTATE '45001'
-	-- 	SET MESSAGE_TEXT := 'Booking ID invalid.';
-	-- END IF;
+    -- ThingToDo IDs are t99999
+    CALL validate_id(my_thing_to_do_id);
 
     -- Email address must have the form <name>@<host>.<domain>
-	IF (email_address NOT REGEXP '%@%\.%')
-	THEN
-	    SIGNAL SQLSTATE '45002'
-		SET MESSAGE_TEXT := 'Email adddress invalid.';
-	END IF;
+	CALL validate_email(my_email_address);
 
-    IF (activity_type NOT IN ('Cultural', 'Hiking', 'Climbing', 'Winter Sports'))
+    IF (my_thing_type = 'Activity')
 	THEN
-	    SIGNAL SQLSTATE '45010'
-		SET MESSAGE_TEXT := 'Invalid activity type';
-	END IF;
-
-	IF ((price_basis NOT IN ('Per Day', 'Per Person', 'Per Person Per Day'))
+	    -- NOT NULL constraint for activity type
+		IF (my_activity_type IS NULL)
+		THEN
+		    SIGNAL SQLSTATE = '45000'
+		    SET MESSAGE_TEXT = 'Invalid activity type.',
+		    MYSQL_ERRNO = 1011;
+		    -- Old way. Shouldn't be necessary any more
+		    -- CALL null_activity_type();
+			-- RETURN 1;
+		END IF;
+		
+	    -- NOT NULL constraint for start date and time
+		IF (my_start_date IS NULL OR my_start_time IS NULL)
+		THEN
+		    SIGNAL SQLSTATE = '45000'
+		    SET MESSAGE_TEXT = 'Invalid start date / time.',
+		    MYSQL_ERRNO = 1013;
+	    	-- Old way. Shouldn't be necessary any more
+    		-- CALL null_start_date_time();
+			-- RETURN 1;
+		END IF;
+		
+		-- Constraint c4: An activity’s end date must be on or after its start date.
+        -- Constraint c5: If an activity starts and ends on the same day, the end time must be after the start time.
+        IF (NOT ((my_start_date < my_end_date) OR
+                ((my_start_date = my_end_date) AND
+                 (my_start_time < my_end_time)))
+    		)
+	    THEN
+	        SIGNAL SQLSTATE = '45000'
+    		SET MESSAGE_TEXT = 'Invalid start date / time.',
+		    MYSQL_ERRNO = 1013;
+	    	-- Old way. Shouldn't be necessary any more
+		    -- CALL invalid_activity_start_date_time();
+			-- RETURN 1;
+	    END IF;
+	ELSEIF (my_thing_type = 'Attraction')
 	THEN
-	    SIGNAL SQLSTATE '45011';
-		SET MESSAGE_TEXT := 'Invalid activity price basis.';
-	END IF;
-
-   -- Constraint c4: An activity’s end date must be on or after its start date.
-   -- Constraint c5: If an activity starts and ends on the same day, the end time must be after the start time.
-    IF (NOT ((start_date < end_date) OR
-            ((start_date = end_date) AND
-             (start_time < end_time)))
-		)
-	THEN
-	    SIGNAL SQLSTATE '45012'
-		SET MESSAGE_TEXT := 'Invalid date or time.';
-	END IF;
+	    -- NOT NULL constraint for attraction type
+		IF (my_attraction_type IS NULL)
+		THEN
+		    SIGNAL SQLSTATE = '45000'
+    		SET MESSAGE_TEXT = 'Invalid attraction type.',
+		    MYSQL_ERRNO = 1014;
+	    	-- Old way. Shouldn't be necessary any more
+		    -- CALL null_attraction_type();
+			-- RETURN 1;
+		END IF;
+		
+	    -- NOT NULL constraint for opening hours
+	    IF (my_opening_hours IS NULL)
+		THEN
+		    SIGNAL SQLSTATE = '45000'
+    		SET MESSAGE_TEXT = 'Invalid opening hours.',
+		    MYSQL_ERRNO = 1016;
+	    	-- Old way. Shouldn't be necessary any more
+		    -- CALL null_opening_hours();
+			-- RETURN 1;
+		END IF;
+	ELSE
+	    SIGNAL SQLSTATE = '45000'
+		SET MESSAGE_TEXT = 'Invalid attraction / activity.',
+		    MYSQL_ERRNO = 1017;
+		-- Old way. Shouldn't be necessary any more
+		-- CALL invalid_thing_to_do_type();
+		-- RETURN 1;
+    END IF;
+	
+	RETURN 0;
 END
 
-CREATE TRIGGER validate_attraction BEFORE INSERT ON attraction
-FOR EACH ROW
+CREATE FUNCTION validate_transport (my_transport_id CHAR(6), my_email_addr VARCHAR(40)) RETURNS INT
 BEGIN
-    -- Attraction IDs are 5-digit integers
-    CALL validate_id(attraction_id, 'Attraction');
-	-- IF (attraction_id NOT BETWEEN 00000 AND 99999)
-	-- THEN
-	--     SIGNAL SQLSTATE '45001'
-	-- 	SET MESSAGE_TEXT := 'Attraction ID invalid.';
-	-- END IF;
+    -- Transport IDs are v99999 (v for vehicle - t already used for thing_to_do)
+    CALL validate_id(transport_id);
 
     -- Email address must have the form <name>@<host>.<domain>
-	IF (email_address NOT REGEXP '%@%\.%')
-	THEN
-	    SIGNAL SQLSTATE '45002'
-		SET MESSAGE_TEXT := 'Email adddress invalid.';
-	END IF;
-
-    IF (attraction_type NOT IN ('Cultural'))
-	THEN
-	    SIGNAL SQLSTATE '45013'
-		SET MESSSAGE_TEXT := 'Attraction type invalid.';
-	END IF;
-
-    IF (price_basis NOT IN ('Adult', 'Child', 'Concession'))
-	THEN
-	    SIGNAL SQLSTATE '45014';
-		SET MESSAGE_TEXT := 'Invalid attraction price basis.';
-	END IF;
+	CALL validate_email(email_address);
+	
+	RETURN 0;
 END
 
-CREATE TRIGGER validate_transport BEFORE INSERT ON transport
+CREATE FUNCTION validate_books (my_thing_to_do_id CHAR(6), my_booking_id CHAR(6)) RETURNS INT
+BEGIN
+    -- Thing-to-do IDs are t99999
+    CALL validate_id(thing_to_do_id);
+	
+    -- Booking IDs are b99999
+    CALL validate_id(booking_id);
+	
+	RETURN 0;
+END
+
+CREATE FUNCTION validate_books_room (my_room_id CHAR(6), my_booking_id CHAR(6)) RETURNS INT
+BEGIN
+    -- Room IDs are r99999
+    CALL validate_id(room_id);
+	
+    -- Booking IDs are b99999
+    CALL validate_id(booking_id);
+	
+	RETURN 0;
+END
+
+CREATE FUNCTION validate_books_transport (my_transport_id CHAR(6), my_booking_id CHAR(6)) RETURNS INT
+BEGIN
+    -- Transport IDs are v99999
+    CALL validate_id(transport_id);
+	
+    -- Booking IDs are b99999
+    CALL validate_id(booking_id);
+	
+	RETURN 0;
+END
+
+CREATE TRIGGER validate_client_on_insert BEFORE INSERT ON client
 FOR EACH ROW
 BEGIN
-    -- Transport IDs are 5-digit integers
-    CALL validate_id(transport_id, 'Transport');
-	-- IF (transport_id NOT BETWEEN 00000 AND 99999)
-	-- THEN
-	--     SIGNAL SQLSTATE '45001'
-	-- 	SET MESSAGE_TEXT := 'Attraction ID invalid.';
-	-- END IF;
-
-    -- Email address must have the form <name>@<host>.<domain>
-	IF (email_address NOT REGEXP '%@%\.%')
-	THEN
-	    SIGNAL SQLSTATE '45002'
-		SET MESSAGE_TEXT := 'Email adddress invalid.';
-	END IF;
-
-    IF (attraction_type NOT IN ('Plane', 'Bus', 'Train', 'Taxi', 'Hire Car'))
-	THEN
-	    SIGNAL SQLSTATE '45015'
-		SET MESSSAGE_TEXT := 'Transport type invalid.';
-	END IF;
+    CALL validate_client(NEW.client_id, NEW.email_address, NEW.date_of_birth);
 END
 
-CREATE TRIGGER validate_transport BEFORE INSERT ON transport
+CREATE TRIGGER validate_client_on_update BEFORE UPDATE ON client
 FOR EACH ROW
 BEGIN
-    -- Activity IDs are 5-digit integers
-    CALL validate_id(activity_id, 'Activity');
-	-- IF (activity_id NOT BETWEEN 00000 AND 99999)
-	-- THEN
-	--     SIGNAL SQLSTATE '45001'
-	-- 	SET MESSAGE_TEXT := 'Booking ID invalid.';
-	-- END IF;
-
-    -- Attraction IDs are 5-digit integers
-    CALL validate_id(attraction_id, 'Attraction');
-	-- IF (attraction_id NOT BETWEEN 00000 AND 99999)
-	-- THEN
-	--     SIGNAL SQLSTATE '45001'
-	-- 	SET MESSAGE_TEXT := 'Attraction ID invalid.';
-	-- END IF;
-
-    -- Booking IDs are 5-digit integers
-    CALL validate_id(booking_id, 'Booking');
-	-- IF (boooking_id NOT BETWEEN 00000 AND 99999)
-	-- THEN
-	--     SIGNAL SQLSTATE '45001'
-	-- 	SET MESSAGE_TEXT := 'Booking ID invalid.';
-	-- END IF;
+    CALL validate_client(NEW.client_id, NEW.email_address, NEW.date_of_birth);
 END
 
-/*
-ALTER TABLE client
-    ADD CONSTRAINT mandatory_in_pays_with
-        CHECK (client_id IN
-               (SELECT DISTINCT client_id FROM credit_card));
+CREATE TRIGGER validate_credit_card_on_insert BEFORE INSERT ON credit_card
+FOR EACH ROW
+BEGIN
+    CALL validate_credit_card(NEW.start_date, NEW.end_date);
+END
 
-ALTER TABLE credit_card
-    ADD CONSTRAINT valid_client_ids
-    -- Check if this needs to be in constraints section of ERD
-        CHECK ((SUBSTR(client_id, 1, 1) = 'c'
-               AND CAST(SUBSTR(client_id, 2, 5) AS UNSIGNED INT)
-                   BETWEEN 00000 AND 99999));
+CREATE TRIGGER validate_credit_card_on_update BEFORE UPDATE ON credit_card
+FOR EACH ROW
+BEGIN
+    CALL validate_credit_card(NEW.start_date, NEW.end_date);
+END
 
-ALTER TABLE accommodation
-    ADD CONSTRAINT mandatory_in_contains
-        CHECK (accom_id IN (SELECT DISTINCT accom_id FROM room)),
+CREATE TRIGGER validate_accommodation_on_insert BEFORE INSERT ON accommodation
+FOR EACH ROW
+BEGIN
+    CALL validate_accommodation(NEW.accom_id, NEW.email_address);
+END
 
-ALTER TABLE room
-    ADD CONSTRAINT valid_room_ids
-        -- Check if this needs to be in constraints section of ERD
-        CHECK ((SUBSTR(room_id, 1, 1) = 'r'
-                AND CAST(SUBSTR(room_id, 2, 5) AS UNSIGNED INT)
-                    BETWEEN 00000 AND 99999)),
+CREATE TRIGGER validate_accommodation_on_update BEFORE UPDATE ON accommodation
+FOR EACH ROW
+BEGIN
+    CALL validate_accommodation(NEW.accom_id, NEW.email_address);
+END
 
-    ADD CONSTRAINT valid_room_types
-        -- Check if this needs to be in constraints section of ERD
-        CHECK (room_type IN ('Single', 'Double', 'Twin', 'Suite', 'Apartment')),
+CREATE TRIGGER validate_room_on_insert BEFORE INSERT ON room
+FOR EACH ROW
+BEGIN
+    CALL validate_room(NEW.room_id, NEW.capacity);
+END
 
-    ADD CONSTRAINT valid_room_capacities
-        -- Check if this needs to be in constraints section of ERD
-        CHECK (capacity BETWEEN 1 AND 10),
+CREATE TRIGGER validate_room_on_update BEFORE UPDATE ON room
+FOR EACH ROW
+BEGIN
+    CALL validate_room(NEW.room_id, NEW.capacity);
+END
 
-    ADD CONSTRAINT valid_room_price_basis
-        -- Check if this needs to be in constraints section of ERD
-        CHECK (price_basis IN ('full board', 'half board', 'bed & breakfast', 'room only'));
+CREATE TRIGGER validate_booking_on_insert BEFORE INSERT ON booking
+FOR EACH ROW
+BEGIN
+    CALL validate_booking(NEW.booking_id, NEW.client_id, NEW.booking_type);
+END
 
-ALTER TABLE booking
-    ADD CONSTRAINT valid_booking_ids
-        -- Check if this needs to be in constraints section of ERD
-        CHECK ((SUBSTR(booking_id, 1, 1) = 'b'
-                AND CAST(SUBSTR(booking_id, 2, 5) AS UNSIGNED INT)
-                    BETWEEN 00000 AND 99999)),
+CREATE TRIGGER validate_booking_on_update BEFORE UPDATE ON booking
+FOR EACH ROW
+BEGIN
+    CALL validate_booking(NEW.booking_id, NEW.client_id, NEW.booking_type);
+END
 
-    ADD CONSTRAINT valid_client_ids
-        -- Check if this needs to be in constraints section of ERD
-        CHECK ((SUBSTR(client_id, 1, 1) = 'c'
-                AND CAST(SUBSTR(client_id, 2, 5) AS UNSIGNED INT)
-                    BETWEEN 00000 AND 99999)),
+CREATE TRIGGER validate_thing_to_do_on_insert BEFORE INSERT ON thing_to_do
+FOR EACH ROW
+BEGIN
+    CALL validate_thing_to_do(NEW.thing_to_do_id, NEW.email_address, NEW.thing_type, NEW.activity_type,
+	                          NEW.attraction_type, NEW.start_date, NEW.start_time, NEW.end_date, NEW.end_time, NEW.opening_hours);
+END
 
-    ADD CONSTRAINT valid_booking_type
-        -- Check if this needs to be in constraints section of ERD
-        CHECK (VALUE IN ('Accommodation', 'Activity', 'Attraction', 'Transport')),
+CREATE TRIGGER validate_thing_to_do_on_update BEFORE UPDATE ON thing_to_do
+FOR EACH ROW
+BEGIN
+    CALL validate_thing_to_do(NEW.thing_to_do_id, NEW.email_address, NEW.thing_type, NEW.start_date, NEW.start_time, NEW.end_date, NEW.end_time, NEW.opening_hours);
+END
 
-    -- Constraint c1: A Booking entity must take part in exactly one occurrence of
-    -- either the BookingB, BookingBR or BookingBT relationship.
-    ADD CONSTRAINT c1
-        CHECK ((booking_type = 'Accommodation'
-               AND (booking_id IN
-                    (SELECT DISTINCT booking_id FROM books_room))
-              ) OR
-               (booking_type IN ('Activity', 'Attraction')
-               AND (booking_id IN
-                    (SELECT DISTINCT booking_id FROM books))
-              ) OR
-               (booking_type = 'Transport'
-               AND (booking_id IN
-                    (SELECT DISTINCT booking_id FROM books_transport))
-              ));
+CREATE TRIGGER validate_transport_on_insert BEFORE INSERT ON transport
+FOR EACH ROW
+BEGIN
+    CALL validate_transport(NEW.transport_id, NEW.email_address);
+END
 
-ALTER TABLE activity
-    ADD CONSTRAINT valid_thing_to_do_id
-    -- Check if this needs to be in constraints section of ERD
-        CHECK ((SUBSTR(thing_to_do_id, 1, 2) = 'th'
-                AND CAST(SUBSTR(booking_id, 3, 5) AS UNSIGNED INT)
-                    BETWEEN 00000 AND 99999)),
+CREATE TRIGGER validate_transport_on_update BEFORE UPDATE ON transport
+FOR EACH ROW
+BEGIN
+    CALL validate_transport(NEW.transport_id, NEW.email_address);
+END
 
-    ADD CONSTRAINT valid_email_address
-     -- Check if this needs to be in constraints section of ERD
-        CHECK (email_address REGEXP '%@%\.%'),
+CREATE TRIGGER validate_books_on_insert BEFORE INSERT ON books
+FOR EACH ROW
+BEGIN
+    CALL validate_books(NEW.thing_to_do_id, NEW.booking_id);
+END
 
-    ADD CONSTRAINT valid_activity_type
-     -- Check if this needs to be in constraints section of ERD
-        CHECK (activity_type IN ('Cultural', 'Hiking', 'Climbing', 'Winter Sports')),
+CREATE TRIGGER validate_books_on_update BEFORE UPDATE ON books
+FOR EACH ROW
+BEGIN
+    CALL validate_books(NEW.thing_to_do_id, NEW.booking_id);
+END
 
-    ADD CONSTRAINT valid_activity_price_basis
-     -- Check if this needs to be in constraints section of ERD
-        CHECK (VALUE IN ('Per Day', 'Per Person', 'Per Person Per Day')),
+CREATE TRIGGER validate_books_room_on_insert BEFORE INSERT ON books_room
+FOR EACH ROW
+BEGIN
+    CALL validate_books_room(NEW.room_id, NEW.booking_id);
+END
 
-   -- Constraint c4: An activity’s end date must be on or after its start date.
-   -- Constraint c5: If an activity starts and ends on the same day, the end time must be after the start time.
-    ADD CONSTRAINT c4c5
-        CHECK ((start_date < end_date) OR
-              ((start_date = end_date) AND
-               (start_time < end_time)));
+CREATE TRIGGER validate_books_room_on_update BEFORE UPDATE ON books_room
+FOR EACH ROW
+BEGIN
+    CALL validate_books_room(NEW.room_id, NEW.booking_id);
+END
 
-ALTER TABLE attraction
-    ADD CONSTRAINT valid_thing_to_do_id
-    -- Check if this needs to be in constraints section of ERD
-        CHECK ((SUBSTR(thing_to_do_id, 1, 2) = 'th'
-               AND CAST(SUBSTR(booking_id, 3, 5) AS UNSIGNED INT)
-                   BETWEEN 00000 AND 99999)),
+CREATE TRIGGER validate_books_transport_on_insert BEFORE INSERT ON books_transport
+FOR EACH ROW
+BEGIN
+    CALL validate_books_transport(NEW.transport_id, NEW.booking_id);
+END
 
-    ADD CONSTRAINT valid_email_address
-        -- Check if this needs to be in constraints section of ERD
-        CHECK (email_address REGEXP '%@%\.%'),
+CREATE TRIGGER validate_books_transport_on_update BEFORE UPDATE ON books_transport
+FOR EACH ROW
+BEGIN
+    CALL validate_books_transport(NEW.transport_id, NEW.booking_id);
+END
 
-    ADD CONSTRAINT valid_attraction_type
-    -- Check if this needs to be in constraints section of ERD 
-       CHECK (attraction_type IN ('Cultural')),
-
-    ADD CONSTRAINT valid_attraction_price_basis
-    -- Check if this needs to be in constraints section of ERD
-        CHECK(price_basis IN ('Adult', 'Child', 'Concession'));
-
-ALTER TABLE transport
-    ADD CONSTRAINT valid_transport_id
-    -- Check if this needs to be in constraints section of ERD
-        CHECK ((SUBSTR(transport_id, 1, 1) = 't'
-               AND CAST(SUBSTR(transport_id, 2, 5) AS UNSIGNED INT)
-                   BETWEEN 00000 AND 99999)),
-
-    ADD CONSTRAINT valid_transport_type
-    -- Check if this needs to be in constraints section of ERD
-        CHECK (transport_type IN ('Plane', 'Bus', 'Train', 'Taxi', 'Hire Car')),
-
-    ADD CONSTRAINT valid_email_address
-    -- Check if this needs to be in constraints section of ERD
-        CHECK (email_address REGEXP '%@%\.%');
-
-ALTER TABLE books
-    ADD CONSTRAINT valid_thing_to_do_id
-    -- Check if this needs to be in constraints section of ERD
-        CHECK ((SUBSTR(thing_to_do_id, 1, 2) = 'th'
-               AND CAST(SUBSTR(booking_id, 3, 5) AS UNSIGNED INT)
-                   BETWEEN 00000 AND 99999)),
-
-    ADD CONSTRAINT valid_booking_ids
-    -- Check if this needs to be in constraints section of ERD
-        CHECK ((SUBSTR(booking_id, 1, 1) = 'b'
-               AND CAST(SUBSTR(booking_id, 2, 5) AS UNSIGNED INT)
-                   BETWEEN 00000 AND 99999));
-
-*/
