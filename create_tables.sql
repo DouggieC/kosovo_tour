@@ -1,8 +1,8 @@
 /*
-**********************************************************
+********************************************************** 
 * Name:    create_tables.sql
 * Author:  Doug Cooper
-* Version: 1.2
+* Version: 2.1
 *
 * Version History
 * 1.0: Initial code
@@ -20,18 +20,18 @@
 **********************************************************
 */
 
-DROP FUNCTION IF EXISTS validate_id;
-DROP FUNCTION IF EXISTS validate_email;
-DROP FUNCTION IF EXISTS validate_client;
-DROP FUNCTION IF EXISTS validate_credit_card;
-DROP FUNCTION IF EXISTS validate_accommodation;
-DROP FUNCTION IF EXISTS validate_room;
-DROP FUNCTION IF EXISTS validate_booking;
-DROP FUNCTION IF EXISTS validate_thing_to_do;
-DROP FUNCTION IF EXISTS validate_transport;
-DROP FUNCTION IF EXISTS validate_books;
-DROP FUNCTION IF EXISTS validate_books_room;
-DROP FUNCTION IF EXISTS validate_books_transport;
+DROP PROCEDURE IF EXISTS validate_id;
+DROP PROCEDURE IF EXISTS validate_email;
+DROP PROCEDURE IF EXISTS validate_client;
+DROP PROCEDURE IF EXISTS validate_credit_card;
+DROP PROCEDURE IF EXISTS validate_accommodation;
+DROP PROCEDURE IF EXISTS validate_room;
+DROP PROCEDURE IF EXISTS validate_booking;
+DROP PROCEDURE IF EXISTS validate_thing_to_do;
+DROP PROCEDURE IF EXISTS validate_transport;
+DROP PROCEDURE IF EXISTS validate_books;
+DROP PROCEDURE IF EXISTS validate_books_room;
+DROP PROCEDURE IF EXISTS validate_books_transport;
 
 DROP TRIGGER IF EXISTS validate_client_on_insert;
 DROP TRIGGER IF EXISTS validate_client_on_update;
@@ -162,7 +162,7 @@ CREATE TABLE thing_to_do (
     price DECIMAL(6,2) NOT NULL,
     price_basis ENUM('Per Day', 'Per Person', 'Per Person Per Day', 'Adult', 'Child', 'Concession') NOT NULL,
 
-	-- Just for activities
+    -- Just for activities
     activity_type ENUM('Cultural', 'Hiking', 'Climbing', 'Winter Sports'), -- NOT NULL
     start_point VARCHAR(200),
     start_date DATE,
@@ -170,11 +170,11 @@ CREATE TABLE thing_to_do (
     end_date DATE,
     end_time TIME,
 
-	-- Just for attractions
+    -- Just for attractions
     attraction_type ENUM('Cultural'), -- NOT NULL,
     opening_hours VARCHAR(100), -- NOT NULL,
 
-	PRIMARY KEY (thing_to_do_id)
+    PRIMARY KEY (thing_to_do_id)
 );
 
 CREATE TABLE books (
@@ -215,10 +215,10 @@ ALTER TABLE booking
 
 ALTER TABLE books
     ADD CONSTRAINT books_in_booking_b
-        FOREIGN KEY (booking_id) REFERENCES booking(booking_id);
+        FOREIGN KEY (booking_id) REFERENCES booking(booking_id),
 
     ADD CONSTRAINT books_in_thing_to_do_b
-        FOREIGN KEY (thing_to_do_id) REFERENCES thing_to_do
+        FOREIGN KEY (thing_to_do_id) REFERENCES thing_to_do(thing_to_do_id);
 
 ALTER TABLE books_room
     ADD CONSTRAINT books_room_in_booking_br
@@ -234,126 +234,102 @@ ALTER TABLE books_transport
     ADD CONSTRAINT books_transport_in_transport_bt
         FOREIGN KEY (transport_id) REFERENCES transport(transport_id);
 
-CREATE FUNCTION validate_id (id CHAR(6)) RETURNS INT
+DELIMITER $$
+CREATE PROCEDURE validate_id (IN id CHAR(6), OUT exit_status INT)
 BEGIN
     DECLARE id_pref CHAR(1);
-	DECLARE id_suff CHAR(5);
-	DECLARE id_name VARCHAR(25);
+    DECLARE id_suff CHAR(5);
+    DECLARE id_name VARCHAR(25);
+    DECLARE id_suff_int INT;
 
     SET id_pref = SUBSTR(id,1,1);
-	SET id_suff = SUBSTR(id,2,5);
-	
-	CASE id_pref
-	    WHEN 'c' THEN SET id_name = 'Client';
-		WHEN 'a' THEN SET id_name = 'Accommodation';
-		WHEN 'r' THEN SET id_name = 'Room';
-		WHEN 't' THEN SET id_name = 'Activity or attraction';
-		WHEN 'v' THEN SET id_name = 'Transport';
-		WHEN 'b' THEN SET id_name = 'Booking';
-		ELSE
-		    BEGIN
-			    SIGNAL SQLSTATE = '45001'
-				SET MESSAGE_TEXT = CONCAT(id_name, ' ID invalid.');
-			    -- Old way. Shouldn't be necessary any more
-				-- CALL invalid_id_prefix(CONCAT(id_name, ' ID invalid.'));
-				-- RETURN 1;
-			END;
-	END CASE;
-		
-	IF ((CAST(id_suff) AS INT) NOT BETWEEN 00000 AND 99999)
-	THEN
-	    SIGNAL SQLSTATE = '4500`'
-		SET MESSAGE_TEXT = CONCAT(id_name, ' ID invalid.');
-		-- Old way. Shouldn't be necessary any more
-		-- CALL invalid_id_suffix;
-		-- RETURN 1;
-	END;
-	
-    RETURN 0;
-END
+    SET id_suff = SUBSTR(id,2,5);
+    SET id_suff_int = CAST(id_suff AS UNSIGNED INTEGER);
 
-CREATE FUNCTION validate_email (email_addr VARCHAR(40)) RETURNS INT
+    CASE id_pref
+        WHEN 'c' THEN SET id_name = 'Client';
+        WHEN 'a' THEN SET id_name = 'Accommodation';
+        WHEN 'r' THEN SET id_name = 'Room';
+        WHEN 't' THEN SET id_name = 'Activity or attraction';
+        WHEN 'v' THEN SET id_name = 'Transport';
+        WHEN 'b' THEN SET id_name = 'Booking';
+        ELSE CALL invalid_id;
+    END CASE;
+
+    IF id_suff_int NOT BETWEEN 00000 AND 99999
+    THEN
+        CALL invalid_id;
+    END IF;
+
+    SET exit_status = 0;
+END $$
+
+CREATE PROCEDURE validate_email (IN email_addr VARCHAR(40), OUT exit_status INT)
 BEGIN
-	IF (email_address NOT REGEXP '%@%\.%')
-	THEN
-	    SIGNAL SQLSTATE = '45002'
-		SET MESSAGE_TEXT = 'Invalid email address.';
-		-- Old way. Shouldn't be necessary any more
-		-- CALL invalid_email_address;
-		-- RETURN 1;
-	END IF;
-	
-	RETURN 0;
-END
+    IF (email_address NOT REGEXP '%@%\.%')
+    THEN
+        CALL invalid_email_address;
+    END IF;
 
-CREATE FUNCTION validate_client (my_client_id CHAR(6), my_email_addr VARCHAR(40), my_dob DATE) RETURNS INT
+    SET exit_status = 0;
+END $$
+
+CREATE PROCEDURE validate_client (IN my_client_id CHAR(6), IN my_email_addr VARCHAR(40), IN my_dob DATE, OUT exit_status INT)
 BEGIN
     -- Client IDs are c99999
     CALL validate_id(my_client_id);
 
     -- Email address must have the form <name>@<host>.<domain>
-	CALL validate_email(my_email_addr);
+    CALL validate_email(my_email_addr);
 
-    /* Constraint c2: A client’s date of birth must be before the current date.
+    /* Constraint c2: A client's date of birth must be before the current date.
        That is, the value of the DateOfBirth attribute of an instance of the Client
        entity type must be before the current date.
     */
     IF (my_dob > CURRENT_DATE)
-	THEN
-	    SIGNAL SQLSTATE = '45003'
-		SET MESSAGE_TEXT = 'Invalid date of birth.';
-		-- Old way. Shouldn't be necessary any more
-		-- CALL invalid_date_of_birth;
-		-- RETURN 1;
-	END IF;
-	
-	RETURN 0;
-END
+    THEN
+        CALL invalid_date_of_birth;
+    END IF;
 
-CREATE FUNCTION validate_credit_card (my_start_date DATE, my_end_date DATE) RETURNS INT
+    SET exit_status = 0;
+END $$
+
+CREATE PROCEDURE validate_credit_card (IN my_start_date DATE, IN my_end_date DATE, OUT exit_status INT)
 BEGIN
     -- Start date must be before end date.
-	IF (my_start_date >= my_end_date)
-	THEN
-	    SIGNAL SQLSTATE = '45005'
-		SET MESSAGE_TEXT = 'Invalid credit card date range.';
-		-- Old way. Shouldn't be necessary any more
-		-- CALL invalid_credit_card_date_range;
-		-- RETURN 1;
-	END IF;
-	
-	RETURN 0;
-END
+    IF (my_start_date >= my_end_date)
+    THEN
+        CALL invalid_credit_card_date_range;
+    END IF;
 
-CREATE FUNCTION validate_accommodation(my_accom_id CHAR(6), my_email_addr VARCHAR(40)) RETURNS INT
+    SET exit_status = 0;
+END $$
+
+CREATE PROCEDURE validate_accommodation(IN my_accom_id CHAR(6), IN my_email_addr VARCHAR(40), OUT exit_status INT)
 BEGIN
     -- Accommodation IDs are a99999
     CALL validate_id(my_accom_id);
 
     -- Email address must have the form <name>@<host>.<domain>
-	CALL validate_email(my_email_addr);
-	
-	RETURN 0;
-END
+    CALL validate_email(my_email_addr);
 
-CREATE FUNCTION validate_room (my_room_id CHAR(6), my_capacity SMALLINT) RETURNS INT
+    SET exit_status = 0;
+END $$
+
+CREATE PROCEDURE validate_room (IN my_room_id CHAR(6), IN my_capacity SMALLINT, OUT exit_status INT)
 BEGIN
     -- Room IDs are r99999
-	CALL validate_id(my_room_id);
+    CALL validate_id(my_room_id);
 
-	IF (my_capacity NOT BETWEEN 1 AND 10)
-	THEN
-	    SIGNAL SQLSTATE = '45007'
-		SET MESSAGE_TEXT = 'Room capacity out of range.';
-		-- Old way. Shouldn't be necessary any more
-		-- CALL room_capacity_out_of_range();
-		-- RETURN 1;
-	END IF;
+    IF (my_capacity NOT BETWEEN 1 AND 10)
+    THEN
+        CALL room_capacity_out_of_range();
+    END IF;
 
-    RETURN 0;
-END
+    SET exit_status = 0;
+END $$
 
-CREATE FUNCTION validate_booking (my_booking_id CHAR(6), my_client_id CHAR(6), my_booking_type VARCHAR(13)) RETURNS INT
+CREATE PROCEDURE validate_booking (IN my_booking_id CHAR(6), IN my_client_id CHAR(6), IN my_booking_type VARCHAR(13), OUT exit_status INT)
 BEGIN
     -- Booking IDs are b99999
     CALL validate_id(my_booking_id);
@@ -376,138 +352,112 @@ BEGIN
                AND (booking_id IN
                     (SELECT DISTINCT booking_id FROM books_transport))
               ))
-		)
-	THEN
-	    SIGNAL SQLSTATE = '45010'
-		SET MESSAGE_TEXT = 'Invalid credit card date range.';
-		-- Old way. Shouldn't be necessary any more
-		-- CALL booking_incorrect();
-		-- RETURN 1;
-	END IF;
-	
-	RETURN 0;
-END
+        )
+    THEN
+        CALL booking_incorrect();
+    END IF;
 
-CREATE FUNCTION validate_thing_to_do (my_thing_to_do_id CHAR(6), my_email_addr VARCHAR(40), my_thing_type VARCHAR(10),
-                                      my_activity_type VARCHAR(13), my_attraction_type VARCHAR(8) my_start_date DATE,
-									  my_start_time TIME, my_end_date DATE, my_end_time TIME, my_opening_hours VARCHAR(100)) RETURNS INT
+    SET exit_status = 0;
+END $$
+
+CREATE PROCEDURE validate_thing_to_do (IN my_thing_to_do_id CHAR(6), IN my_email_addr VARCHAR(40), IN my_thing_type VARCHAR(10),
+                                       IN my_activity_type VARCHAR(13), IN my_attraction_type VARCHAR(8), IN my_start_date DATE,
+                                       IN my_start_time TIME, IN my_end_date DATE, IN my_end_time TIME, IN my_opening_hours VARCHAR(100),
+                                       OUT exit_status INT)
 BEGIN
     -- ThingToDo IDs are t99999
     CALL validate_id(my_thing_to_do_id);
 
     -- Email address must have the form <name>@<host>.<domain>
-	CALL validate_email(my_email_address);
+    CALL validate_email(my_email_address);
 
     IF (my_thing_type = 'Activity')
-	THEN
-	    -- NOT NULL constraint for activity type
-		IF (my_activity_type IS NULL)
-		THEN
-		    SIGNAL SQLSTATE = '45011'
-		    SET MESSAGE_TEXT = 'Invalid activity type.';
-		    -- Old way. Shouldn't be necessary any more
-		    -- CALL null_activity_type();
-			-- RETURN 1;
-		END IF;
-		
-	    -- NOT NULL constraint for start date and time
-		IF (my_start_date IS NULL OR my_start_time IS NULL)
-		THEN
-		    SIGNAL SQLSTATE = '45013'
-		    SET MESSAGE_TEXT = 'Invalid start date / time.';
-	    	-- Old way. Shouldn't be necessary any more
-    		-- CALL null_start_date_time();
-			-- RETURN 1;
-		END IF;
-		
-		-- Constraint c4: An activity’s end date must be on or after its start date.
+    THEN
+        -- NOT NULL constraint for activity type
+        IF (my_activity_type IS NULL)
+        THEN
+            CALL null_activity_type();
+        END IF;
+
+        -- NOT NULL constraint for start date and time
+        IF (my_start_date IS NULL OR my_start_time IS NULL)
+        THEN
+            CALL null_start_date_time();
+        END IF;
+
+        -- Constraint c4: An activityÂ’s end date must be on or after its start date.
         -- Constraint c5: If an activity starts and ends on the same day, the end time must be after the start time.
         IF (NOT ((my_start_date < my_end_date) OR
                 ((my_start_date = my_end_date) AND
                  (my_start_time < my_end_time)))
-    		)
-	    THEN
-	        SIGNAL SQLSTATE = '45013'
-    		SET MESSAGE_TEXT = 'Invalid start date / time.';
-	    	-- Old way. Shouldn't be necessary any more
-		    -- CALL invalid_activity_start_date_time();
-			-- RETURN 1;
-	    END IF;
-	ELSEIF (my_thing_type = 'Attraction')
-	THEN
-	    -- NOT NULL constraint for attraction type
-		IF (my_attraction_type IS NULL)
-		THEN
-		    SIGNAL SQLSTATE = '45014'
-    		SET MESSAGE_TEXT = 'Invalid attraction type.';
-	    	-- Old way. Shouldn't be necessary any more
-		    -- CALL null_attraction_type();
-			-- RETURN 1;
-		END IF;
-		
-	    -- NOT NULL constraint for opening hours
-	    IF (my_opening_hours IS NULL)
-		THEN
-		    SIGNAL SQLSTATE = '45016'
-    		SET MESSAGE_TEXT = 'Invalid opening hours.';
-	    	-- Old way. Shouldn't be necessary any more
-		    -- CALL null_opening_hours();
-			-- RETURN 1;
-		END IF;
-	ELSE
-	    SIGNAL SQLSTATE = '45017'
-		SET MESSAGE_TEXT = 'Must be either activity or attraction.';
-		-- Old way. Shouldn't be necessary any more
-		-- CALL invalid_thing_to_do_type();
-		-- RETURN 1;
-    END IF;
-	
-	RETURN 0;
-END
+            )
+        THEN
+            CALL invalid_activity_start_date_time();
+        END IF;
+    ELSEIF (my_thing_type = 'Attraction')
+    THEN
+        -- NOT NULL constraint for attraction type
+        IF (my_attraction_type IS NULL)
+        THEN
+            CALL null_attraction_type();
+        END IF;
 
-CREATE FUNCTION validate_transport (my_transport_id CHAR(6), my_email_addr VARCHAR(40)) RETURNS INT
+        -- NOT NULL constraint for opening hours
+        IF (my_opening_hours IS NULL)
+        THEN
+            CALL null_opening_hours();
+        END IF;
+    ELSE
+        CALL invalid_thing_to_do_type();
+    END IF;
+
+    SET exit_status = 0;
+END $$
+
+CREATE PROCEDURE validate_transport (IN my_transport_id CHAR(6), IN my_email_addr VARCHAR(40), OUT exit_status INT)
 BEGIN
     -- Transport IDs are v99999 (v for vehicle - t already used for thing_to_do)
-    CALL validate_id(transport_id);
+    CALL validate_id(my_transport_id);
 
     -- Email address must have the form <name>@<host>.<domain>
-	CALL validate_email(email_address);
-	
-	RETURN 0;
-END
+    CALL validate_email(my_email_address);
 
-CREATE FUNCTION validate_books (my_thing_to_do_id CHAR(6), my_booking_id CHAR(6)) RETURNS INT
+    SET exit_status = 0;
+END $$
+
+CREATE PROCEDURE validate_books (IN my_thing_to_do_id CHAR(6), IN my_booking_id CHAR(6), OUT exit_status INT)
 BEGIN
     -- Thing-to-do IDs are t99999
-    CALL validate_id(thing_to_do_id);
-	
-    -- Booking IDs are b99999
-    CALL validate_id(booking_id);
-	
-	RETURN 0;
-END
+    CALL validate_id(my_thing_to_do_id);
 
-CREATE FUNCTION validate_books_room (my_room_id CHAR(6), my_booking_id CHAR(6)) RETURNS INT
+    -- Booking IDs are b99999
+    CALL validate_id(my_booking_id);
+
+    SET exit_status = 0;
+END $$
+
+CREATE PROCEDURE validate_books_room (IN my_room_id CHAR(6), IN my_booking_id CHAR(6), OUT exit_status INT)
 BEGIN
     -- Room IDs are r99999
-    CALL validate_id(room_id);
-	
-    -- Booking IDs are b99999
-    CALL validate_id(booking_id);
-	
-	RETURN 0;
-END
+    CALL validate_id(my_room_id);
 
-CREATE FUNCTION validate_books_transport (my_transport_id CHAR(6), my_booking_id CHAR(6)) RETURNS INT
+    -- Booking IDs are b99999
+    CALL validate_id(my_booking_id);
+
+    SET exit_status = 0;
+END $$
+
+CREATE PROCEDURE validate_books_transport (IN my_transport_id CHAR(6), IN my_booking_id CHAR(6), OUT exit_status INT)
 BEGIN
     -- Transport IDs are v99999
-    CALL validate_id(transport_id);
-	
+    CALL validate_id(my_transport_id);
+
     -- Booking IDs are b99999
-    CALL validate_id(booking_id);
-	
-	RETURN 0;
-END
+    CALL validate_id(my_booking_id);
+
+    SET exit_status = 0;
+END $$
+DELIMITER ;
 
 CREATE TRIGGER validate_client_on_insert BEFORE INSERT ON client
 FOR EACH ROW
@@ -573,7 +523,7 @@ CREATE TRIGGER validate_thing_to_do_on_insert BEFORE INSERT ON thing_to_do
 FOR EACH ROW
 BEGIN
     CALL validate_thing_to_do(NEW.thing_to_do_id, NEW.email_address, NEW.thing_type, NEW.activity_type,
-	                          NEW.attraction_type, NEW.start_date, NEW.start_time, NEW.end_date, NEW.end_time, NEW.opening_hours);
+                              NEW.attraction_type, NEW.start_date, NEW.start_time, NEW.end_date, NEW.end_time, NEW.opening_hours);
 END
 
 CREATE TRIGGER validate_thing_to_do_on_update BEFORE UPDATE ON thing_to_do
