@@ -2,7 +2,7 @@
 ********************************************************** 
 * Name:    create_tables.sql
 * Author:  Doug Cooper
-* Version: 2.1
+* Version: 2.2
 *
 * Version History
 * 1.0: Initial code
@@ -17,6 +17,8 @@
 *      Also added error handling
 * 2.1: Don't use MYSQL_ERRNO for user-defined errors. Changed to
 *      Use SQLSTATE '45xxx' instead.
+* 2.2: SIGNAL does not appear to work correctly for error
+*      handling. Reverted to invalid proc call instead.
 **********************************************************
 */
 
@@ -457,126 +459,126 @@ BEGIN
 
     SET exit_status = 0;
 END $$
-DELIMITER ;
 
 CREATE TRIGGER validate_client_on_insert BEFORE INSERT ON client
 FOR EACH ROW
 BEGIN
     CALL validate_client(NEW.client_id, NEW.email_address, NEW.date_of_birth);
-END
+END $$
 
 CREATE TRIGGER validate_client_on_update BEFORE UPDATE ON client
 FOR EACH ROW
 BEGIN
     CALL validate_client(NEW.client_id, NEW.email_address, NEW.date_of_birth);
-END
+END $$
 
 CREATE TRIGGER validate_credit_card_on_insert BEFORE INSERT ON credit_card
 FOR EACH ROW
 BEGIN
     CALL validate_credit_card(NEW.start_date, NEW.end_date);
-END
+END $$
 
 CREATE TRIGGER validate_credit_card_on_update BEFORE UPDATE ON credit_card
 FOR EACH ROW
 BEGIN
     CALL validate_credit_card(NEW.start_date, NEW.end_date);
-END
+END $$
 
 CREATE TRIGGER validate_accommodation_on_insert BEFORE INSERT ON accommodation
 FOR EACH ROW
 BEGIN
     CALL validate_accommodation(NEW.accom_id, NEW.email_address);
-END
+END $$
 
 CREATE TRIGGER validate_accommodation_on_update BEFORE UPDATE ON accommodation
 FOR EACH ROW
 BEGIN
     CALL validate_accommodation(NEW.accom_id, NEW.email_address);
-END
+END $$
 
 CREATE TRIGGER validate_room_on_insert BEFORE INSERT ON room
 FOR EACH ROW
 BEGIN
     CALL validate_room(NEW.room_id, NEW.capacity);
-END
+END $$
 
 CREATE TRIGGER validate_room_on_update BEFORE UPDATE ON room
 FOR EACH ROW
 BEGIN
     CALL validate_room(NEW.room_id, NEW.capacity);
-END
+END $$
 
 CREATE TRIGGER validate_booking_on_insert BEFORE INSERT ON booking
 FOR EACH ROW
 BEGIN
     CALL validate_booking(NEW.booking_id, NEW.client_id, NEW.booking_type);
-END
+END $$
 
 CREATE TRIGGER validate_booking_on_update BEFORE UPDATE ON booking
 FOR EACH ROW
 BEGIN
     CALL validate_booking(NEW.booking_id, NEW.client_id, NEW.booking_type);
-END
+END $$
 
 CREATE TRIGGER validate_thing_to_do_on_insert BEFORE INSERT ON thing_to_do
 FOR EACH ROW
 BEGIN
     CALL validate_thing_to_do(NEW.thing_to_do_id, NEW.email_address, NEW.thing_type, NEW.activity_type,
                               NEW.attraction_type, NEW.start_date, NEW.start_time, NEW.end_date, NEW.end_time, NEW.opening_hours);
-END
+END $$
 
 CREATE TRIGGER validate_thing_to_do_on_update BEFORE UPDATE ON thing_to_do
 FOR EACH ROW
 BEGIN
     CALL validate_thing_to_do(NEW.thing_to_do_id, NEW.email_address, NEW.thing_type, NEW.start_date, NEW.start_time, NEW.end_date, NEW.end_time, NEW.opening_hours);
-END
+END $$
 
 CREATE TRIGGER validate_transport_on_insert BEFORE INSERT ON transport
 FOR EACH ROW
 BEGIN
     CALL validate_transport(NEW.transport_id, NEW.email_address);
-END
+END $$
 
 CREATE TRIGGER validate_transport_on_update BEFORE UPDATE ON transport
 FOR EACH ROW
 BEGIN
     CALL validate_transport(NEW.transport_id, NEW.email_address);
-END
+END $$
 
 CREATE TRIGGER validate_books_on_insert BEFORE INSERT ON books
 FOR EACH ROW
 BEGIN
     CALL validate_books(NEW.thing_to_do_id, NEW.booking_id);
-END
+END $$
 
 CREATE TRIGGER validate_books_on_update BEFORE UPDATE ON books
 FOR EACH ROW
 BEGIN
     CALL validate_books(NEW.thing_to_do_id, NEW.booking_id);
-END
+END $$
 
 CREATE TRIGGER validate_books_room_on_insert BEFORE INSERT ON books_room
 FOR EACH ROW
 BEGIN
     CALL validate_books_room(NEW.room_id, NEW.booking_id);
-END
+END $$
 
 CREATE TRIGGER validate_books_room_on_update BEFORE UPDATE ON books_room
 FOR EACH ROW
 BEGIN
     CALL validate_books_room(NEW.room_id, NEW.booking_id);
-END
+END $$
 
 CREATE TRIGGER validate_books_transport_on_insert BEFORE INSERT ON books_transport
 FOR EACH ROW
 BEGIN
     CALL validate_books_transport(NEW.transport_id, NEW.booking_id);
-END
+END $$
 
 CREATE TRIGGER validate_books_transport_on_update BEFORE UPDATE ON books_transport
 FOR EACH ROW
 BEGIN
     CALL validate_books_transport(NEW.transport_id, NEW.booking_id);
-END
+END $$
+DELIMITER ;
 
