@@ -2,7 +2,7 @@
 ********************************************************** 
 * Name:    create_tables.sql
 * Author:  Doug Cooper
-* Version: 2.2
+* Version: 2.3
 *
 * Version History
 * 1.0: Initial code
@@ -19,6 +19,8 @@
 *      Use SQLSTATE '45xxx' instead.
 * 2.2: SIGNAL does not appear to work correctly for error
 *      handling. Reverted to invalid proc call instead.
+* 2.3: Correct syntax for SIGNAL. Revert to this method rather
+*      then invalid procedure call.
 **********************************************************
 */
 
@@ -237,12 +239,13 @@ ALTER TABLE books_transport
         FOREIGN KEY (transport_id) REFERENCES transport(transport_id);
 
 DELIMITER $$
-CREATE PROCEDURE validate_id (IN id CHAR(6), OUT exit_status INT)
+CREATE PROCEDURE validate_id (IN id CHAR(6))
 BEGIN
     DECLARE id_pref CHAR(1);
     DECLARE id_suff CHAR(5);
     DECLARE id_name VARCHAR(25);
     DECLARE id_suff_int INT;
+    DECLARE err_msg VARCHAR(50);
 
     SET id_pref = SUBSTR(id,1,1);
     SET id_suff = SUBSTR(id,2,5);
@@ -255,28 +258,31 @@ BEGIN
         WHEN 't' THEN SET id_name = 'Activity or attraction';
         WHEN 'v' THEN SET id_name = 'Transport';
         WHEN 'b' THEN SET id_name = 'Booking';
-        ELSE CALL invalid_id;
+        ELSE SIGNAL SQLSTATE '45001'
+             SET MESSAGE_TEXT='ID invalid.';
     END CASE;
+
+    SET err_msg=CONCAT(id_name, ' ID invalid.');
 
     IF id_suff_int NOT BETWEEN 00000 AND 99999
     THEN
-        CALL invalid_id;
+         SIGNAL SQLSTATE '45001'
+             SET MESSAGE_TEXT=err_msg;
     END IF;
 
-    SET exit_status = 0;
 END $$
 
-CREATE PROCEDURE validate_email (IN email_addr VARCHAR(40), OUT exit_status INT)
+CREATE PROCEDURE validate_email (IN email_addr VARCHAR(40))
 BEGIN
-    IF (email_address NOT REGEXP '%@%\.%')
+    IF (email_addr NOT REGEXP '%@%\.%')
     THEN
-        CALL invalid_email_address;
+        SIGNAL SQLSTATE '45002'
+            SET MESSAGE_TEXT='Invalid email address.';
     END IF;
 
-    SET exit_status = 0;
 END $$
 
-CREATE PROCEDURE validate_client (IN my_client_id CHAR(6), IN my_email_addr VARCHAR(40), IN my_dob DATE, OUT exit_status INT)
+CREATE PROCEDURE validate_client (IN my_client_id CHAR(6), IN my_email_addr VARCHAR(40), IN my_dob DATE)
 BEGIN
     -- Client IDs are c99999
     CALL validate_id(my_client_id);
@@ -290,24 +296,23 @@ BEGIN
     */
     IF (my_dob > CURRENT_DATE)
     THEN
-        CALL invalid_date_of_birth;
+        SIGNAL SQLSTATE '45003'
+            SET MESSAGE_TEXT='Invalid date of birth.';
     END IF;
-
-    SET exit_status = 0;
 END $$
 
-CREATE PROCEDURE validate_credit_card (IN my_start_date DATE, IN my_end_date DATE, OUT exit_status INT)
+CREATE PROCEDURE validate_credit_card (IN my_start_date DATE, IN my_end_date DATE)
 BEGIN
     -- Start date must be before end date.
     IF (my_start_date >= my_end_date)
     THEN
-        CALL invalid_credit_card_date_range;
+        SIGNAL SQLSTATE '45005'
+            SET MESSAGE_TEXT='Invalid credit card date range.';
     END IF;
 
-    SET exit_status = 0;
 END $$
 
-CREATE PROCEDURE validate_accommodation(IN my_accom_id CHAR(6), IN my_email_addr VARCHAR(40), OUT exit_status INT)
+CREATE PROCEDURE validate_accommodation(IN my_accom_id CHAR(6), IN my_email_addr VARCHAR(40))
 BEGIN
     -- Accommodation IDs are a99999
     CALL validate_id(my_accom_id);
@@ -315,23 +320,22 @@ BEGIN
     -- Email address must have the form <name>@<host>.<domain>
     CALL validate_email(my_email_addr);
 
-    SET exit_status = 0;
 END $$
 
-CREATE PROCEDURE validate_room (IN my_room_id CHAR(6), IN my_capacity SMALLINT, OUT exit_status INT)
+CREATE PROCEDURE validate_room (IN my_room_id CHAR(6), IN my_capacity SMALLINT)
 BEGIN
     -- Room IDs are r99999
     CALL validate_id(my_room_id);
 
     IF (my_capacity NOT BETWEEN 1 AND 10)
     THEN
-        CALL room_capacity_out_of_range();
+        SIGNAL SQLSTATE '45007'
+            SET MESSAGE_TEXT='Room capacity out of range.';
     END IF;
 
-    SET exit_status = 0;
 END $$
 
-CREATE PROCEDURE validate_booking (IN my_booking_id CHAR(6), IN my_client_id CHAR(6), IN my_booking_type VARCHAR(13), OUT exit_status INT)
+CREATE PROCEDURE validate_booking (IN my_booking_id CHAR(6), IN my_client_id CHAR(6), IN my_booking_type VARCHAR(13))
 BEGIN
     -- Booking IDs are b99999
     CALL validate_id(my_booking_id);
@@ -356,16 +360,15 @@ BEGIN
               ))
         )
     THEN
-        CALL booking_incorrect();
+        SIGNAL SQLSTATE '45009'
+            SET MESSAGE_TEXT='Invalid booking type.';
     END IF;
 
-    SET exit_status = 0;
 END $$
 
 CREATE PROCEDURE validate_thing_to_do (IN my_thing_to_do_id CHAR(6), IN my_email_addr VARCHAR(40), IN my_thing_type VARCHAR(10),
                                        IN my_activity_type VARCHAR(13), IN my_attraction_type VARCHAR(8), IN my_start_date DATE,
-                                       IN my_start_time TIME, IN my_end_date DATE, IN my_end_time TIME, IN my_opening_hours VARCHAR(100),
-                                       OUT exit_status INT)
+                                       IN my_start_time TIME, IN my_end_date DATE, IN my_end_time TIME, IN my_opening_hours VARCHAR(100))
 BEGIN
     -- ThingToDo IDs are t99999
     CALL validate_id(my_thing_to_do_id);
@@ -378,45 +381,50 @@ BEGIN
         -- NOT NULL constraint for activity type
         IF (my_activity_type IS NULL)
         THEN
-            CALL null_activity_type();
+            SIGNAL SQLSTATE '45011'
+                SET MESSAGE_TEXT='Invalid activity type.';
         END IF;
 
         -- NOT NULL constraint for start date and time
         IF (my_start_date IS NULL OR my_start_time IS NULL)
         THEN
-            CALL null_start_date_time();
+            SIGNAL SQLSTATE '45013'
+                SET MESSAGE_TEXT='Invalid start date / time.';
         END IF;
 
-        -- Constraint c4: An activitys end date must be on or after its start date.
+        -- Constraint c4: An activity's end date must be on or after its start date.
         -- Constraint c5: If an activity starts and ends on the same day, the end time must be after the start time.
         IF (NOT ((my_start_date < my_end_date) OR
                 ((my_start_date = my_end_date) AND
                  (my_start_time < my_end_time)))
             )
         THEN
-            CALL invalid_activity_start_date_time();
+            SIGNAL SQLSTATE '45013'
+                SET MESSAGE_TEXT='Invalid start date / time.';
         END IF;
     ELSEIF (my_thing_type = 'Attraction')
     THEN
         -- NOT NULL constraint for attraction type
         IF (my_attraction_type IS NULL)
         THEN
-            CALL null_attraction_type();
+            SIGNAL SQLSTATE '45014'
+                SET MESSAGE_TEXT='Invalid attraction type.';
         END IF;
 
         -- NOT NULL constraint for opening hours
         IF (my_opening_hours IS NULL)
         THEN
-            CALL null_opening_hours();
+            SIGNAL SQLSTATE '45016'
+                SET MESSAGE_TEXT='Invalid opening hours.';
         END IF;
     ELSE
-        CALL invalid_thing_to_do_type();
+        SIGNAL SQLSTATE '45017'
+            SET MESSAGE_TEXT='Invalid activity / attraction type.';
     END IF;
 
-    SET exit_status = 0;
 END $$
 
-CREATE PROCEDURE validate_transport (IN my_transport_id CHAR(6), IN my_email_addr VARCHAR(40), OUT exit_status INT)
+CREATE PROCEDURE validate_transport (IN my_transport_id CHAR(6), IN my_email_addr VARCHAR(40))
 BEGIN
     -- Transport IDs are v99999 (v for vehicle - t already used for thing_to_do)
     CALL validate_id(my_transport_id);
@@ -424,10 +432,9 @@ BEGIN
     -- Email address must have the form <name>@<host>.<domain>
     CALL validate_email(my_email_address);
 
-    SET exit_status = 0;
 END $$
 
-CREATE PROCEDURE validate_books (IN my_thing_to_do_id CHAR(6), IN my_booking_id CHAR(6), OUT exit_status INT)
+CREATE PROCEDURE validate_books (IN my_thing_to_do_id CHAR(6), IN my_booking_id CHAR(6))
 BEGIN
     -- Thing-to-do IDs are t99999
     CALL validate_id(my_thing_to_do_id);
@@ -435,10 +442,9 @@ BEGIN
     -- Booking IDs are b99999
     CALL validate_id(my_booking_id);
 
-    SET exit_status = 0;
 END $$
 
-CREATE PROCEDURE validate_books_room (IN my_room_id CHAR(6), IN my_booking_id CHAR(6), OUT exit_status INT)
+CREATE PROCEDURE validate_books_room (IN my_room_id CHAR(6), IN my_booking_id CHAR(6))
 BEGIN
     -- Room IDs are r99999
     CALL validate_id(my_room_id);
@@ -446,10 +452,9 @@ BEGIN
     -- Booking IDs are b99999
     CALL validate_id(my_booking_id);
 
-    SET exit_status = 0;
 END $$
 
-CREATE PROCEDURE validate_books_transport (IN my_transport_id CHAR(6), IN my_booking_id CHAR(6), OUT exit_status INT)
+CREATE PROCEDURE validate_books_transport (IN my_transport_id CHAR(6), IN my_booking_id CHAR(6))
 BEGIN
     -- Transport IDs are v99999
     CALL validate_id(my_transport_id);
@@ -457,7 +462,6 @@ BEGIN
     -- Booking IDs are b99999
     CALL validate_id(my_booking_id);
 
-    SET exit_status = 0;
 END $$
 
 CREATE TRIGGER validate_client_on_insert BEFORE INSERT ON client
