@@ -1,6 +1,8 @@
-c00001,Doug,Cooper,"144 Perry Rise, London, SE23 2QP",08/05/1975,`02083331198,doug_cooper2000@yahoo.co.uk
-a00001,Doug,Cooper,"144 Perry Rise, London, SE23 2QP",08/05/1975,`02083331198,doug_cooper2000@yahoo.co.uk
-ca0001,Doug,Cooper,"144 Perry Rise, London, SE23 2QP",08/05/1975,`02083331198,doug_cooper2000@yahoo.co.uk
-c00002,Justin,Sullivan,"144 Perry Rise, London, SE23 2QP",08/04/1956,`02083331198,justin.sullivan@nma
-c00003,Stuart,Morrow,"144 Perry Rise, London, SE23 2QP",10/02/1958,`02083331198,stuart.morrow.nma.org.uk
-c00004,Rob,Heaton,"145 Perry Rise, London, SE23 2QP",06/07/1961,`02083331199,rob.heaton@nma.org.uk
+INSERT INTO (client_id, first_name, last_name, address, date_of_birth, tel_no, email_address) VALUES
+    (c00001,Doug,Cooper,"144 Perry Rise, London, SE23 2QP",08/05/1975,02083331198,doug_cooper2000@yahoo.co.uk),
+    (a00001,Doug,Cooper,"144 Perry Rise, London, SE23 2QP",08/05/1975,02083331198,doug_cooper2000@yahoo.co.uk),
+    (ca0001,Doug,Cooper,"144 Perry Rise, London, SE23 2QP",08/05/1975,02083331198,doug_cooper2000@yahoo.co.uk),
+    (c00002,Justin,Sullivan,"144 Perry Rise, London, SE23 2QP",08/04/1956,02083331198,justin.sullivan@nma),
+    (c00003,Stuart,Morrow,"144 Perry Rise, London, SE23 2QP",10/02/1958,02083331198,stuart.morrow.nma.org.uk),
+    (c00004,Rob,Heaton,"145 Perry Rise, London, SE23 2QP",06/07/1961,02083331199,rob.heaton@nma.org.uk)
+;
