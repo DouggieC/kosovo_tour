@@ -2,7 +2,7 @@
 ********************************************************** 
 * Name:    create_tables.sql
 * Author:  Doug Cooper
-* Version: 2.3
+* Version: 2.4
 *
 * Version History
 * 1.0: Initial code
@@ -21,6 +21,7 @@
 *      handling. Reverted to invalid proc call instead.
 * 2.3: Correct syntax for SIGNAL. Revert to this method rather
 *      then invalid procedure call.
+* 2.4: Improve error handling for IDs and email addresses.
 **********************************************************
 */
 
