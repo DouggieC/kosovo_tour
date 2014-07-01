@@ -239,7 +239,7 @@ ALTER TABLE books_transport
         FOREIGN KEY (transport_id) REFERENCES transport(transport_id);
 
 DELIMITER $$
-CREATE PROCEDURE validate_id (IN id CHAR(6))
+CREATE PROCEDURE validate_id (IN id CHAR(6), IN id_should_be CHAR(1))
 BEGIN
     DECLARE id_pref CHAR(1);
     DECLARE id_suff CHAR(5);
@@ -258,26 +258,45 @@ BEGIN
         WHEN 't' THEN SET id_name = 'Activity or attraction';
         WHEN 'v' THEN SET id_name = 'Transport';
         WHEN 'b' THEN SET id_name = 'Booking';
-        ELSE SIGNAL SQLSTATE '45001'
-             SET MESSAGE_TEXT='ID invalid.';
+        ELSE
+            BEGIN
+                SET err_msg=CONCAT(id_name, ' ID invalid: ', id);
+                SIGNAL SQLSTATE '45001'
+                    SET MESSAGE_TEXT='ID invalid.';
+            END;
     END CASE;
 
-    SET err_msg=CONCAT(id_name, ' ID invalid.');
-
-    IF id_suff_int NOT BETWEEN 00000 AND 99999
+    IF id_pref <> id_should_be
     THEN
-         SIGNAL SQLSTATE '45001'
-             SET MESSAGE_TEXT=err_msg;
+        BEGIN
+            SET err_msg=CONCAT(id_name, ' ID invalid: ', id);
+             SIGNAL SQLSTATE '45001'
+                 SET MESSAGE_TEXT=err_msg;
+        END;
+    END IF;
+
+    IF id_suff_int NOT BETWEEN 00001 AND 99999
+    THEN
+        BEGIN
+            SET err_msg=CONCAT(id_name, ' ID invalid: ', id);
+             SIGNAL SQLSTATE '45001'
+                 SET MESSAGE_TEXT=err_msg;
+        END;
     END IF;
 
 END $$
 
 CREATE PROCEDURE validate_email (IN email_addr VARCHAR(40))
 BEGIN
-    IF (email_addr NOT REGEXP '%@%\.%')
+    DECLARE err_msg VARCHAR(100);
+
+    IF (email_addr NOT REGEXP '.*@.*\..*')
     THEN
-        SIGNAL SQLSTATE '45002'
-            SET MESSAGE_TEXT='Invalid email address.';
+        BEGIN
+            SET err_msg=CONCAT('Invalid email address: ', email_addr);
+            SIGNAL SQLSTATE '45002'
+                SET MESSAGE_TEXT=err_msg;
+        END;
     END IF;
 
 END $$
@@ -285,7 +304,7 @@ END $$
 CREATE PROCEDURE validate_client (IN my_client_id CHAR(6), IN my_email_addr VARCHAR(40), IN my_dob DATE)
 BEGIN
     -- Client IDs are c99999
-    CALL validate_id(my_client_id);
+    CALL validate_id(my_client_id, 'c');
 
     -- Email address must have the form <name>@<host>.<domain>
     CALL validate_email(my_email_addr);
@@ -315,7 +334,7 @@ END $$
 CREATE PROCEDURE validate_accommodation(IN my_accom_id CHAR(6), IN my_email_addr VARCHAR(40))
 BEGIN
     -- Accommodation IDs are a99999
-    CALL validate_id(my_accom_id);
+    CALL validate_id(my_accom_id, 'a');
 
     -- Email address must have the form <name>@<host>.<domain>
     CALL validate_email(my_email_addr);
@@ -325,7 +344,7 @@ END $$
 CREATE PROCEDURE validate_room (IN my_room_id CHAR(6), IN my_capacity SMALLINT)
 BEGIN
     -- Room IDs are r99999
-    CALL validate_id(my_room_id);
+    CALL validate_id(my_room_id, 'r');
 
     IF (my_capacity NOT BETWEEN 1 AND 10)
     THEN
@@ -338,10 +357,10 @@ END $$
 CREATE PROCEDURE validate_booking (IN my_booking_id CHAR(6), IN my_client_id CHAR(6), IN my_booking_type VARCHAR(13))
 BEGIN
     -- Booking IDs are b99999
-    CALL validate_id(my_booking_id);
+    CALL validate_id(my_booking_id, 'b');
 
     -- Client IDs are c99999
-    CALL validate_id(my_client_id);
+    CALL validate_id(my_client_id, 'b');
 
     /* Constraint c1: A Booking entity must take part in exactly one occurrence of
        either the BookingB, BookingBR or BookingBT relationship.
@@ -371,7 +390,7 @@ CREATE PROCEDURE validate_thing_to_do (IN my_thing_to_do_id CHAR(6), IN my_email
                                        IN my_start_time TIME, IN my_end_date DATE, IN my_end_time TIME, IN my_opening_hours VARCHAR(100))
 BEGIN
     -- ThingToDo IDs are t99999
-    CALL validate_id(my_thing_to_do_id);
+    CALL validate_id(my_thing_to_do_id, 't');
 
     -- Email address must have the form <name>@<host>.<domain>
     CALL validate_email(my_email_address);
@@ -427,7 +446,7 @@ END $$
 CREATE PROCEDURE validate_transport (IN my_transport_id CHAR(6), IN my_email_addr VARCHAR(40))
 BEGIN
     -- Transport IDs are v99999 (v for vehicle - t already used for thing_to_do)
-    CALL validate_id(my_transport_id);
+    CALL validate_id(my_transport_id, 'v');
 
     -- Email address must have the form <name>@<host>.<domain>
     CALL validate_email(my_email_address);
@@ -437,30 +456,30 @@ END $$
 CREATE PROCEDURE validate_books (IN my_thing_to_do_id CHAR(6), IN my_booking_id CHAR(6))
 BEGIN
     -- Thing-to-do IDs are t99999
-    CALL validate_id(my_thing_to_do_id);
+    CALL validate_id(my_thing_to_do_id, 't');
 
     -- Booking IDs are b99999
-    CALL validate_id(my_booking_id);
+    CALL validate_id(my_booking_id, 'b');
 
 END $$
 
 CREATE PROCEDURE validate_books_room (IN my_room_id CHAR(6), IN my_booking_id CHAR(6))
 BEGIN
     -- Room IDs are r99999
-    CALL validate_id(my_room_id);
+    CALL validate_id(my_room_id, 'r');
 
     -- Booking IDs are b99999
-    CALL validate_id(my_booking_id);
+    CALL validate_id(my_booking_id, 'b');
 
 END $$
 
 CREATE PROCEDURE validate_books_transport (IN my_transport_id CHAR(6), IN my_booking_id CHAR(6))
 BEGIN
     -- Transport IDs are v99999
-    CALL validate_id(my_transport_id);
+    CALL validate_id(my_transport_id, 'v');
 
     -- Booking IDs are b99999
-    CALL validate_id(my_booking_id);
+    CALL validate_id(my_booking_id, 'b');
 
 END $$
 
