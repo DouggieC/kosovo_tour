@@ -3,6 +3,7 @@
 * Name:    create_tables.sql
 * Author:  Doug Cooper
 * Version: 2.4
+* Date:    01-07-2014
 *
 * Version History
 * 1.0: Initial code
@@ -70,6 +71,7 @@ DROP TABLE IF EXISTS accommodation;
 DROP TABLE IF EXISTS credit_card;
 DROP TABLE IF EXISTS client;
 
+-- client holds details of those looking to holiday in Kosovo
 CREATE TABLE client (
     client_id CHAR(6) NOT NULL,
     first_name VARCHAR(20) NOT NULL,
@@ -82,6 +84,7 @@ CREATE TABLE client (
     PRIMARY KEY (client_id)
 );
 
+-- Client's credit card details
 CREATE TABLE credit_card (
     card_no NUMERIC(16,0) NOT NULL,
     first_name VARCHAR(20) NOT NULL,
@@ -97,6 +100,7 @@ CREATE TABLE credit_card (
     PRIMARY KEY (card_no)
 );
 
+-- Overall details of an accomodation provider, eg hotel name
 CREATE TABLE accommodation (
     accom_id CHAR(6) NOT NULL,
     name VARCHAR(100) NOT NULL,
@@ -110,6 +114,7 @@ CREATE TABLE accommodation (
     PRIMARY KEY (accom_id)
 );
 
+-- Details of individual rooms within an accomodation
 CREATE TABLE room (
     room_id CHAR(6) NOT NULL,
     description VARCHAR(1000),
@@ -122,6 +127,7 @@ CREATE TABLE room (
     PRIMARY KEY (room_id)
 );
 
+-- Details of a booking made by a client
 CREATE TABLE booking (
     booking_id CHAR(6) NOT NULL,
     booking_date DATE NOT NULL,
@@ -138,6 +144,7 @@ CREATE TABLE booking (
     PRIMARY KEY (booking_id)
 );
 
+-- Details of transport providers available
 CREATE TABLE transport (
     transport_id CHAR(6) NOT NULL,
     name VARCHAR(100) NOT NULL,
@@ -154,6 +161,8 @@ CREATE TABLE transport (
     PRIMARY KEY (transport_id)
 );
 
+-- Represents ThingToDo supertype, comprising Activity and Attraction subtypes.
+-- thing_type column is used to indicate which subtype is represented.
 CREATE TABLE thing_to_do (
     thing_to_do_id CHAR(6) NOT NULL,
     thing_type ENUM('Activity', 'Accommodation') NOT NULL,
@@ -176,12 +185,13 @@ CREATE TABLE thing_to_do (
     end_time TIME,
 
     -- Just for attractions
-    attraction_type ENUM('Cultural'), -- NOT NULL,
-    opening_hours VARCHAR(100), -- NOT NULL,
+    attraction_type ENUM('Cultural'),
+    opening_hours VARCHAR(100),
 
     PRIMARY KEY (thing_to_do_id)
 );
 
+-- R-for-R approach to resolve m:n Books relationship
 CREATE TABLE books (
     booking_id CHAR(6) NOT NULL,
     thing_to_do_id CHAR(6) NOT NULL,
@@ -189,6 +199,7 @@ CREATE TABLE books (
     PRIMARY KEY (booking_id, thing_to_do_id)
 );
 
+-- R-for-R approach to resolve m:n BooksRoom relationship
 CREATE TABLE books_room (
     booking_id CHAR(6) NOT NULL,
     room_id CHAR(6) NOT NULL,
@@ -196,6 +207,7 @@ CREATE TABLE books_room (
     PRIMARY KEY (booking_id, room_id)
 );
 
+-- R-for-R approach to resolve m:n BooksTransport relationship
 CREATE TABLE books_transport (
     booking_id CHAR(6) NOT NULL,
     transport_id CHAR(6) NOT NULL,
@@ -240,6 +252,8 @@ ALTER TABLE books_transport
         FOREIGN KEY (transport_id) REFERENCES transport(transport_id);
 
 DELIMITER $$
+-- Make sure the ID (PK) is valid
+-- Should be [cartvb]00000
 CREATE PROCEDURE validate_id (IN id CHAR(6), IN id_should_be CHAR(1))
 BEGIN
     DECLARE id_pref CHAR(1);
@@ -252,7 +266,7 @@ BEGIN
     SET id_suff = SUBSTR(id,2,5);
     SET id_suff_int = CAST(id_suff AS UNSIGNED INTEGER);
 
-    CASE id_pref
+    CASE id_should_be
         WHEN 'c' THEN SET id_name = 'Client';
         WHEN 'a' THEN SET id_name = 'Accommodation';
         WHEN 'r' THEN SET id_name = 'Room';
@@ -287,11 +301,13 @@ BEGIN
 
 END $$
 
+-- Email address must contain an `@' symbol and FQDN containing
+-- at least one `.', i.e. <name>@<host>.<domain>
 CREATE PROCEDURE validate_email (IN email_addr VARCHAR(40))
 BEGIN
     DECLARE err_msg VARCHAR(100);
 
-    IF (email_addr NOT REGEXP '.*@.*\..*')
+    IF (email_addr NOT REGEXP '^[^@]+@[^@]+\.[^@]{2,}')
     THEN
         BEGIN
             SET err_msg=CONCAT('Invalid email address: ', email_addr);
