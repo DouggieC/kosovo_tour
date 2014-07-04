@@ -2,7 +2,7 @@
 ********************************************************** 
 * Name:    create_tables.sql
 * Author:  Doug Cooper
-* Version: 2.4
+* Version: 2.6
 * Date:    01-07-2014
 *
 * Version History
@@ -23,53 +23,17 @@
 * 2.3: Correct syntax for SIGNAL. Revert to this method rather
 *      then invalid procedure call.
 * 2.4: Improve error handling for IDs and email addresses.
+* 2.5: Replace ENUMs with lookup tables - this is std SQL and
+*      more easily maintained.
+* 2.6: Drop whole DB & recreate rather than dropping individual
+*      tables.
 **********************************************************
 */
 
-DROP PROCEDURE IF EXISTS validate_id;
-DROP PROCEDURE IF EXISTS validate_email;
-DROP PROCEDURE IF EXISTS validate_client;
-DROP PROCEDURE IF EXISTS validate_credit_card;
-DROP PROCEDURE IF EXISTS validate_accommodation;
-DROP PROCEDURE IF EXISTS validate_room;
-DROP PROCEDURE IF EXISTS validate_booking;
-DROP PROCEDURE IF EXISTS validate_thing_to_do;
-DROP PROCEDURE IF EXISTS validate_transport;
-DROP PROCEDURE IF EXISTS validate_books;
-DROP PROCEDURE IF EXISTS validate_books_room;
-DROP PROCEDURE IF EXISTS validate_books_transport;
-
-DROP TRIGGER IF EXISTS validate_client_on_insert;
-DROP TRIGGER IF EXISTS validate_client_on_update;
-DROP TRIGGER IF EXISTS validate_credit_card_on_insert;
-DROP TRIGGER IF EXISTS validate_credit_card_on_update;
-DROP TRIGGER IF EXISTS validate_accommodation_on_insert;
-DROP TRIGGER IF EXISTS validate_accommodation_on_update;
-DROP TRIGGER IF EXISTS validate_room_on_insert;
-DROP TRIGGER IF EXISTS validate_room_on_update;
-DROP TRIGGER IF EXISTS validate_booking_on_insert;
-DROP TRIGGER IF EXISTS validate_booking_on_update;
-DROP TRIGGER IF EXISTS validate_thing_to_do_on_insert;
-DROP TRIGGER IF EXISTS validate_thing_to_do_on_update;
-DROP TRIGGER IF EXISTS validate_transport_on_insert;
-DROP TRIGGER IF EXISTS validate_transport_on_update;
-DROP TRIGGER IF EXISTS validate_books_on_insert;
-DROP TRIGGER IF EXISTS validate_books_on_update;
-DROP TRIGGER IF EXISTS validate_books_room_on_insert;
-DROP TRIGGER IF EXISTS validate_books_room_on_update;
-DROP TRIGGER IF EXISTS validate_books_transport_on_insert;
-DROP TRIGGER IF EXISTS validate_books_transport_on_update;
-
-DROP TABLE IF EXISTS books_transport;
-DROP TABLE IF EXISTS books_room;
-DROP TABLE IF EXISTS books;
-DROP TABLE IF EXISTS thing_to_do;
-DROP TABLE IF EXISTS transport;
-DROP TABLE IF EXISTS booking;
-DROP TABLE IF EXISTS room;
-DROP TABLE IF EXISTS accommodation;
-DROP TABLE IF EXISTS credit_card;
-DROP TABLE IF EXISTS client;
+-- Delete the database if it exists already, then recreate it
+DROP DATABASE IF EXISTS kostour;
+CREATE DATABASE kostour DEFAULT CHARACTER SET utf8 COLLATE utf8_unicode_ci;
+USE kostour;
 
 -- client holds details of those looking to holiday in Kosovo
 CREATE TABLE client (
@@ -90,7 +54,7 @@ CREATE TABLE credit_card (
     first_name VARCHAR(20) NOT NULL,
     last_name VARCHAR(20) NOT NULL,
     address VARCHAR(200) NOT NULL,
-    card_type ENUM('Visa Credit', 'Visa Debit', 'Mastercard Credit', 'Mastercard Debit') NOT NULL,
+    card_type INT NOT NULL,
     start_date DATE,
     end_date DATE NOT NULL,
     issue_no NUMERIC(3,0),
@@ -118,10 +82,10 @@ CREATE TABLE accommodation (
 CREATE TABLE room (
     room_id CHAR(6) NOT NULL,
     description VARCHAR(1000),
-    room_type ENUM('Single', 'Double', 'Twin', 'Suite', 'Apartment') NOT NULL,
+    room_type INT NOT NULL,
     capacity SMALLINT NOT NULL,
     price DECIMAL(6,2) NOT NULL,
-    price_basis ENUM('full board', 'half board', 'bed & breakfast', 'room only') NOT NULL,
+    price_basis INT NOT NULL,
     accom_id CHAR(6) NOT NULL,
 
     PRIMARY KEY (room_id)
@@ -132,7 +96,7 @@ CREATE TABLE booking (
     booking_id CHAR(6) NOT NULL,
     booking_date DATE NOT NULL,
     booking_time TIME NOT NULL,
-    booking_type ENUM('Accommodation', 'Activity', 'Attraction', 'Transport') NOT NULL,
+    booking_type INT NOT NULL,
     start_date DATE NOT NULL,
     start_time TIME NOT NULL,
     end_date DATE,
@@ -154,7 +118,7 @@ CREATE TABLE transport (
     website_url VARCHAR(200),
     description VARCHAR(1000),
     picture MEDIUMBLOB,
-    transport_type ENUM('Plane', 'Bus', 'Train', 'Taxi', 'Hire Car') NOT NULL,
+    transport_type INT NOT NULL,
     price DECIMAL(6,2) NOT NULL,
     price_basis VARCHAR(15) NOT NULL,
 
@@ -165,7 +129,7 @@ CREATE TABLE transport (
 -- thing_type column is used to indicate which subtype is represented.
 CREATE TABLE thing_to_do (
     thing_to_do_id CHAR(6) NOT NULL,
-    thing_type ENUM('Activity', 'Accommodation') NOT NULL,
+    thing_type INT NOT NULL,
     name VARCHAR(100) NOT NULL,
     address VARCHAR(200),
     tel_no VARCHAR(15),
@@ -174,19 +138,20 @@ CREATE TABLE thing_to_do (
     description VARCHAR(1000),
     picture MEDIUMBLOB,
     price DECIMAL(6,2) NOT NULL,
-    price_basis ENUM('Per Day', 'Per Person', 'Per Person Per Day', 'Adult', 'Child', 'Concession') NOT NULL,
 
     -- Just for activities
-    activity_type ENUM('Cultural', 'Hiking', 'Climbing', 'Winter Sports'), -- NOT NULL
+    activity_type INT,
     start_point VARCHAR(200),
     start_date DATE,
     start_time TIME,
     end_date DATE,
     end_time TIME,
+    act_price_basis INT,
 
     -- Just for attractions
-    attraction_type ENUM('Cultural'),
+    attraction_type INT,
     opening_hours VARCHAR(100),
+    attr_price_basis INT,
 
     PRIMARY KEY (thing_to_do_id)
 );
@@ -215,20 +180,133 @@ CREATE TABLE books_transport (
     PRIMARY KEY (booking_id, transport_id)
 );
 
+-- Valid types of credit / debit card
+CREATE TABLE card_type (
+    card_type_id INT NOT NULL AUTO_INCREMENT,
+    card_type VARCHAR(30) NOT NULL,
+
+    PRIMARY KEY (card_type_id)
+);
+
+-- Valid types of room
+CREATE TABLE room_type (
+    room_type_id INT AUTO_INCREMENT,
+    room_type VARCHAR(30) NOT NULL,
+
+    PRIMARY KEY (room_type_id)
+);
+
+-- Valid room price bases
+CREATE TABLE room_price_basis (
+    room_pb_id INT AUTO_INCREMENT,
+    room_price_basis VARCHAR(30) NOT NULL,
+
+    PRIMARY KEY (room_pb_id)
+);
+
+-- Valid types of booking
+CREATE TABLE booking_type (
+    booking_type_id INT AUTO_INCREMENT,
+    booking_type VARCHAR(30) NOT NULL,
+
+    PRIMARY KEY (booking_type_id)
+);
+
+-- Valid types of transport
+CREATE TABLE transport_type (
+    trans_type_id INT AUTO_INCREMENT,
+    transport_type VARCHAR(30) NOT NULL,
+
+    PRIMARY KEY (trans_type_id)
+);
+
+-- Valid types of thing to do
+CREATE TABLE thing_type (
+    thing_type_id INT AUTO_INCREMENT,
+    thing_type VARCHAR(30) NOT NULL,
+
+    PRIMARY KEY (thing_type_id)
+);
+
+-- Valid types of activity
+CREATE TABLE activity_type (
+    act_type_id INT AUTO_INCREMENT,
+    activity_type VARCHAR(30) NOT NULL,
+
+    PRIMARY KEY (act_type_id)
+);
+
+-- Valid activity price bases
+CREATE TABLE activity_price_basis (
+    act_pb_id INT AUTO_INCREMENT,
+    activity_price_basis VARCHAR(30) NOT NULL,
+
+    PRIMARY KEY (act_pb_id)
+);
+
+-- Valid types of attraction
+CREATE TABLE attraction_type (
+    attr_type_id INT AUTO_INCREMENT,
+    attraction_type VARCHAR(30) NOT NULL,
+
+    PRIMARY KEY (attr_type_id)
+);
+
+-- Valid attraction price bases
+CREATE TABLE attraction_price_basis (
+    attr_pb_id INT AUTO_INCREMENT,
+    attrattrion_price_basis VARCHAR(30) NOT NULL,
+
+    PRIMARY KEY (attr_pb_id)
+);
+
+
 ALTER TABLE credit_card
     ADD CONSTRAINT credit_card_in_pays_with
-        FOREIGN KEY (client_id) REFERENCES client(client_id);
+        FOREIGN KEY (client_id) REFERENCES client(client_id),
+
+    ADD CONSTRAINT credit_card_in_card_is_a
+        FOREIGN KEY (card_type) REFERENCES card_type(card_type_id);
 
 ALTER TABLE room
     ADD CONSTRAINT room_in_contains
-        FOREIGN KEY (accom_id) REFERENCES accommodation(accom_id);
+        FOREIGN KEY (accom_id) REFERENCES accommodation(accom_id),
+
+    ADD CONSTRAINT room_in_room_is_a
+        FOREIGN KEY (room_type) REFERENCES room_type(room_type_id),
+
+    ADD CONSTRAINT room_in_room_is_charged
+        FOREIGN KEY (price_basis) REFERENCES room_price_basis(room_pb_id);
 
 ALTER TABLE booking
     ADD CONSTRAINT booking_in_requests
         FOREIGN KEY (client_id) REFERENCES client(client_id),
 
     ADD CONSTRAINT booking_in_pays_for
-        FOREIGN KEY (card_no) REFERENCES credit_card(card_no);
+        FOREIGN KEY (card_no) REFERENCES credit_card(card_no),
+
+    ADD CONSTRAINT booking_in_booking_is_for
+        FOREIGN KEY (booking_type) REFERENCES booking_type(booking_type_id);
+
+ALTER TABLE transport
+    ADD CONSTRAINT transport_in_transport_is_a
+        FOREIGN KEY (transport_type) REFERENCES transport_type(trans_type_id);
+
+ALTER TABLE thing_to_do
+    ADD CONSTRAINT thing_to_do_in_thing_is_a
+        FOREIGN KEY (thing_type) REFERENCES thing_type(thing_type_id),
+
+    ADD CONSTRAINT thing_to_do_in_activity_is_a
+        FOREIGN KEY (activity_type) REFERENCES activity_type(act_type_id),
+
+    ADD CONSTRAINT thing_to_do_in_attraction_is_a
+        FOREIGN KEY (attraction_type) REFERENCES attraction_type(attr_type_id),
+
+    ADD CONSTRAINT thing_to_do_in_activity_is_charged
+        FOREIGN KEY (act_price_basis) REFERENCES activity_price_basis(act_pb_id),
+
+    ADD CONSTRAINT thing_to_do_in_attraction_is_charged
+        FOREIGN KEY (attr_price_basis) REFERENCES attraction_price_basis(attr_pb_id);
 
 ALTER TABLE books
     ADD CONSTRAINT books_in_booking_b
@@ -621,4 +699,70 @@ BEGIN
     CALL validate_books_transport(NEW.transport_id, NEW.booking_id);
 END $$
 DELIMITER ;
+
+-- Populate lookup tables with lists
+INSERT INTO card_type VALUES
+    ('','Visa Credit'),
+    ('','Visa Debit'),
+    ('','Mastercard Credit'),
+    ('','Mastercard Debit')
+;
+
+INSERT INTO room_type VALUES
+    ('','Single'),
+    ('','Double'),
+    ('','Twin'),
+    ('','Suite'),
+    ('','Apartment')
+;
+
+INSERT INTO room_price_basis VALUES
+    ('','full board'),
+    ('','half board'),
+    ('','bed & breakfast'),
+    ('','room only')
+;
+
+INSERT INTO booking_type VALUES
+    ('','Accommodation'),
+    ('','Activity'),
+    ('','Attraction'),
+    ('','Transport')
+;
+
+INSERT INTO transport_type VALUES
+    ('','Plane'),
+    ('','Bus'),
+    ('','Train'),
+    ('','Taxi'),
+    ('','Hire Car')
+;
+
+INSERT INTO thing_type VALUES
+    ('','Activity'),
+    ('','Accommodation')
+;
+
+INSERT INTO activity_type VALUES
+    ('','Cultural'),
+    ('','Hiking'),
+    ('','Climbing'),
+    ('','Winter Sports')
+;
+
+INSERT INTO activity_price_basis VALUES
+    ('','Per Day'),
+    ('','Per Person'),
+    ('','Per Person Per Day')
+;
+
+INSERT INTO attraction_type VALUES
+    ('','Cultural')
+;
+
+INSERT INTO attraction_price_basis VALUES
+    ('','Adult'),
+    ('','Child'),
+    ('','Concession')
+;
 
