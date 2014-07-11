@@ -2,7 +2,7 @@
 ********************************************************** 
 * Name:    create_tables.sql
 * Author:  Doug Cooper
-* Version: 2.6
+* Version: 2.7
 * Date:    01-07-2014
 *
 * Version History
@@ -27,6 +27,8 @@
 *      more easily maintained.
 * 2.6: Drop whole DB & recreate rather than dropping individual
 *      tables.
+* 2.7: Address stored in multiple lines instead of one large
+*      VARCHAR(200).
 **********************************************************
 */
 
@@ -40,7 +42,12 @@ CREATE TABLE client (
     client_id CHAR(6) NOT NULL,
     first_name VARCHAR(20) NOT NULL,
     last_name VARCHAR(20) NOT NULL,
-    address VARCHAR(200) NOT NULL,
+    address_line_1 VARCHAR(50) NOT NULL,
+    address_line_2 VARCHAR(50),
+    address_line_3 VARCHAR(50),
+    address_line_4 VARCHAR(50),
+    postcode VARCHAR(10) NOT NULL,
+    country VARCHAR(50) NOT NULL,
     date_of_birth DATE,
     tel_no VARCHAR(15),
     email_address VARCHAR(40) NOT NULL,
@@ -53,7 +60,12 @@ CREATE TABLE credit_card (
     card_no NUMERIC(16,0) NOT NULL,
     first_name VARCHAR(20) NOT NULL,
     last_name VARCHAR(20) NOT NULL,
-    address VARCHAR(200) NOT NULL,
+    address_line_1 VARCHAR(50) NOT NULL,
+    address_line_2 VARCHAR(50),
+    address_line_3 VARCHAR(50),
+    address_line_4 VARCHAR(50),
+    postcode VARCHAR(10) NOT NULL,
+    country VARCHAR(50) NOT NULL,
     card_type INT NOT NULL,
     start_date DATE,
     end_date DATE NOT NULL,
@@ -68,7 +80,12 @@ CREATE TABLE credit_card (
 CREATE TABLE accommodation (
     accom_id CHAR(6) NOT NULL,
     name VARCHAR(100) NOT NULL,
-    address VARCHAR(200) NOT NULL,
+    address_line_1 VARCHAR(50) NOT NULL,
+    address_line_2 VARCHAR(50),
+    address_line_3 VARCHAR(50),
+    address_line_4 VARCHAR(50),
+    postcode VARCHAR(10) NOT NULL,
+    country VARCHAR(50) NOT NULL,
     tel_no VARCHAR(15),
     email_address VARCHAR(40) NOT NULL,
     description VARCHAR(1000),
@@ -112,7 +129,12 @@ CREATE TABLE booking (
 CREATE TABLE transport (
     transport_id CHAR(6) NOT NULL,
     name VARCHAR(100) NOT NULL,
-    address VARCHAR(200),
+    address_line_1 VARCHAR(50) NOT NULL,
+    address_line_2 VARCHAR(50),
+    address_line_3 VARCHAR(50),
+    address_line_4 VARCHAR(50),
+    postcode VARCHAR(10) NOT NULL,
+    country VARCHAR(50) NOT NULL,
     tel_no VARCHAR(15),
     email_address VARCHAR(40) NOT NULL,
     website_url VARCHAR(200),
@@ -131,7 +153,12 @@ CREATE TABLE thing_to_do (
     thing_to_do_id CHAR(6) NOT NULL,
     thing_type INT NOT NULL,
     name VARCHAR(100) NOT NULL,
-    address VARCHAR(200),
+    address_line_1 VARCHAR(50) NOT NULL,
+    address_line_2 VARCHAR(50),
+    address_line_3 VARCHAR(50),
+    address_line_4 VARCHAR(50),
+    postcode VARCHAR(10) NOT NULL,
+    country VARCHAR(50) NOT NULL,
     tel_no VARCHAR(15),
     email_address VARCHAR(40) NOT NULL,
     website_url VARCHAR(200),

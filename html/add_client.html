@@ -1,0 +1,34 @@
+client_id CHAR(6) NOT NULL,
+first_name VARCHAR(20) NOT NULL,
+last_name VARCHAR(20) NOT NULL,
+address_line_1 VARCHAR(50) NOT NULL,
+address_line_2 VARCHAR(50),
+address_line_3 VARCHAR(50),
+address_line_4 VARCHAR(50),
+postcode VARCHAR(10) NOT NULL,
+country VARCHAR(50) NOT NULL,
+date_of_birth DATE,
+tel_no VARCHAR(15),
+email_address VARCHAR(40) NOT NULL,
+
+<HTML>
+<HEAD>
+    <TITLE>Add a client</TITLE>
+</HEAD>
+<BODY>
+<FORM METHOD=GET ACTION="/perl/add_client.pl">
+    <H1>Please enter your details:</H1>
+    <P>First Name: <INPUT NAME="firstname" TYPE=TEXT></P>
+    <P>Last Name: <INPUT NAME="lastname" TYPE=TEXT></P>
+    <P>Address Line 1: <INPUT NAME="address_line_1" TYPE=TEXT></P>
+    <P>Address Line 2: <INPUT NAME="address_line_2" TYPE=TEXT></P>
+    <P>Address Line 3: <INPUT NAME="address_line_3" TYPE=TEXT></P>
+    <P>Address Line 4: <INPUT NAME="address_line_4" TYPE=TEXT></P>
+    <P>Postcode: <INPUT NAME="postcode" TYPE=TEXT></P>
+    <P>Country: <INPUT NAME="country" TYPE=TEXT></P>
+    <P>Date of birth: <INPUT NAME="date_of_birth" TYPE=TEXT></P>
+    <P>Phone Number: <INPUT NAME="tel_no" TYPE=TEXT></P>
+    <P>Email Address: <INPUT NAME="email_address" TYPE=TEXT></P>
+    </FORM>
+</BODY>
+</HTML>
