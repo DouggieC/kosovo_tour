@@ -38,11 +38,11 @@ print $cgi->header,
          $cgi->p("Country: ", $cgi->textfield(-name=>'country')),
          $cgi->p("Phone Number: ", $cgi->textfield(-name=>'tel_no')),
          $cgi->p("Email Address: ", $cgi->textfield(-name=>'email_address')),
-         $cgi->p("Description: ", $cgi->textfield(-name=>'description', -rows=>20, -columns=>50)),
+         $cgi->p("Description: ", $cgi->textarea(-name=>'accom_desc', -rows=>20, -columns=>50)),
          $cgi->p("Website: ", $cgi->textfield(-name=>'website_url')),
          $cgi->p("Upload a picture: ", $cgi->filefield(-name=>'picture')),
          $cgi->p($cgi->h2("Please enter one room's details below. More rooms can be added later.")),
-         $cgi->p("Description: ", $cgi->textfield(-name=>'description', -rows=>20, -columns=>50)),
+         $cgi->p("Description: ", $cgi->textarea(-name=>'room_desc', -rows=>20, -columns=>50)),
          $cgi->p("Room Type: ", $cgi->popup_menu(-name=>'room_type', -values=>$roomTypeValues, -labels=>$roomTypeLabels)),
          $cgi->p("Capacity: ", $cgi->textfield(-name=>'capacity')),
          $cgi->p("Price: ", $cgi->textfield(-name=>'price')),
@@ -52,7 +52,9 @@ print $cgi->header,
       $cgi->end_html();
 
 # Read user input from webpage into hash for DB insertion
-%insertData = $cgi->param();
+foreach ($cgi->param()) {
+    $insertData{$_} = $cgi->param($_);
+}
 
 # Get the picture file data if needed
 if (defined $insertData{'picture'}) {
@@ -62,7 +64,7 @@ if (defined $insertData{'picture'}) {
         $picFile .= $_;
     }
 } else {
-	$picFile = '';
+    $picFile = '';
 }
 
 # Insert the data
@@ -71,14 +73,14 @@ $sth = $dbh->prepare("INSERT INTO accommodation VALUES (?, ?, ?, ?, ?, ?, ?, ?, 
 $sth->execute('a00001', $insertData{'name'}, $insertData{'address_line_1'}, $insertData{'address_line_2'},
               $insertData{'address_line_3'}, $insertData{'address_line_4'}, $insertData{'postcode'},
               $insertData{'country'}, $insertData{'tel_no'}, $insertData{'email_address'},
-              $insertData{'description'}, $insertData{'website_url'}, $insertData{'picture'}) || die "Couldn't insert client details: $DBI::errstr\n";
+              $insertData{'accom_desc'}, $insertData{'website_url'}, $insertData{'picture'}) || die "Couldn't insert client details: $DBI::errstr\n";
 
 # Get the accommodation ID just inserted
-$myAccomId = $dbh->selectrow_array("SELECT MAX(accom_id) FROM accommodation,");
+$myAccomId = $dbh->selectrow_array("SELECT MAX(accom_id) FROM accommodation;");
 
 $sth = $dbh->prepare("INSERT INTO room VALUES (?, ?, ?, ?, ?, ?, ?);");
-$sth->execute('r00001', $insertData{'description'}, $insertData{'room_type'}, $insertData{'capacity'},
-              $insertData{'price'}, $insertData{'price_basis'}, $myAccomId) || die "Couldn't insert credit card details: $DBI::errstr\n";
+$sth->execute('r00001', $insertData{'room_desc'}, $insertData{'room_type'}, $insertData{'capacity'},
+              $insertData{'price'}, $insertData{'price_basis'}, $myAccomId) || die "Couldn't insert room details: $DBI::errstr\n";
 
 print $cgi->header(),
       $cgi->start_html("Accommodation added successfully"),
