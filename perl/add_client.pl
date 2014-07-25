@@ -1,4 +1,17 @@
 #!/usr/bin/perl
+###########################################################
+# Name:    add_client.pl
+# Author:  Doug Cooper
+# Version: 1.3
+# Date:    01-07-2014
+#
+# Version History
+# 1.0: Initial code. CGI only.
+# 1.1: Improve CGI layout
+# 1.2: Basic database interaction
+# 1.3: DB transaction support
+###########################################################
+
 use warnings;
 use strict;
 use CGI;
@@ -49,17 +62,8 @@ print $cgi->end_html();
 
 %insertData = $cgi->param();
 
-foreach ($cgi->param()) {
-#    unless ($_ == 'email_address' or $_ == 'postcode') {
-        $insertData{$_} = $cgi->param($_, ucfirst(lc($cgi->param($_))));
-#    } else {
-#        $insertData{$_} = $cgi->param($_);
-#    }
-}
-
 # Insert the data
 # First get the last-used client ID from the database
-#my $curr_id = ($dbh->selectrow_array("SELECT client_id FROM last_used_id WHERE last_used_pk = '0';"))[0];
 my $curr_id = ($dbh->selectrow_array("SELECT client_id FROM last_used_id LIMIT 1;"))[0];
 my $num = substr($curr_id,1);
 $num++;
