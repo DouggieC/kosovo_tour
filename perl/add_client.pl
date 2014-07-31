@@ -1,8 +1,8 @@
 #!/usr/bin/perl
-###########################################################
+###############################################################
 # Name:    add_client.pl
 # Author:  Doug Cooper
-# Version: 1.3
+# Version: 1.4
 # Date:    01-07-2014
 #
 # Version History
@@ -10,7 +10,9 @@
 # 1.1: Improve CGI layout
 # 1.2: Basic database interaction
 # 1.3: DB transaction support
-###########################################################
+* 1.4: Use get_next_id() stored proc instead of updating IDs
+*      in Perl code.
+###############################################################
 
 use warnings;
 use strict;
@@ -63,11 +65,10 @@ print $cgi->end_html();
 %insertData = $cgi->param();
 
 # Insert the data
-# First get the last-used client ID from the database
-my $curr_id = ($dbh->selectrow_array("SELECT client_id FROM last_used_id LIMIT 1;"))[0];
-my $num = substr($curr_id,1);
-$num++;
-$client_id = "c" . $num;
+# First get the next client ID from the database
+my $sql = "CALL get_next_id('a', \@rtn)";
+$dbh->do($sql);
+$client_id = $dbh->selectrow_array('SELECT @rtn');
 
 # Begin transaction
 eval {

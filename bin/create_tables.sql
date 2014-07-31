@@ -622,7 +622,7 @@ END $$
 CREATE PROCEDURE get_next_id (IN my_id_type CHAR(1), OUT next_id CHAR(6))
 BEGIN
     
-	DECLARE id_field VARCHAR(15);
+    DECLARE id_field VARCHAR(15);
     DECLARE err_msg VARCHAR(50);
     DECLARE t1 VARCHAR(50);
     DECLARE stmt VARCHAR(50);
