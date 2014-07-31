@@ -2,7 +2,7 @@
 ********************************************************** 
 * Name:    create_tables.sql
 * Author:  Doug Cooper
-* Version: 2.8
+* Version: 2.9
 * Date:    01-07-2014
 *
 * Version History
@@ -30,6 +30,7 @@
 * 2.7: Address stored in multiple lines instead of one large
 *      VARCHAR(200).
 * 2.8: Add table to hold last-used IDs.
+* 2.9 : Corrections to procedure get_next_id()
 **********************************************************
 */
 
@@ -292,13 +293,13 @@ CREATE TABLE attraction_price_basis (
 CREATE TABLE last_used_id (
     -- Setting PK to ENUM with one value ensures
     -- there is never more than one row.
-    last_used_pk   ENUM('') NOT NULL PRIMARY KEY,
-    client_id      CHAR(6)  NOT NULL,
-    accom_id       CHAR(6)  NOT NULL,
-    room_id        CHAR(6)  NOT NULL,
-    booking_id     CHAR(6)  NOT NULL,
-    transport_id   CHAR(6)  NOT NULL,
-    thing_to_do_id CHAR(6)  NOT NULL
+    last_used_pk   ENUM('0') NOT NULL PRIMARY KEY,
+    client_id      CHAR(6)   NOT NULL,
+    accom_id       CHAR(6)   NOT NULL,
+    room_id        CHAR(6)   NOT NULL,
+    booking_id     CHAR(6)   NOT NULL,
+    transport_id   CHAR(6)   NOT NULL,
+    thing_to_do_id CHAR(6)   NOT NULL
 );
 
 ALTER TABLE credit_card
@@ -620,10 +621,8 @@ END $$
 
 CREATE PROCEDURE get_next_id (IN my_id_type CHAR(1), OUT next_id CHAR(6))
 BEGIN
-    -- DECLARE id_pref CHAR(1);
-    -- DECLARE id_suff CHAR(5);
-    -- DECLARE id_suff_int INT;
-    DECLARE id_field VARCHAR(15);
+    
+	DECLARE id_field VARCHAR(15);
     DECLARE err_msg VARCHAR(50);
     DECLARE t1 VARCHAR(50);
     DECLARE stmt VARCHAR(50);
@@ -646,24 +645,16 @@ BEGIN
     END CASE;
     
     -- Get the last used ID from the table
-    SET @t1 := CONCAT('SELECT ', id_field, 'INTO @curr_id FROM last_used_id WHERE last_used_pk = 0');
+    SET @t1 := CONCAT('SELECT ', id_field, ' INTO @curr_id FROM last_used_id WHERE last_used_pk = 0');
     PREPARE stmt FROM @t1;
     EXECUTE stmt;
     DEALLOCATE PREPARE stmt;
     
-    /*
-    SET id_pref = SUBSTR(curr_id,1,1);
-    SET id_suff = SUBSTR(curr_id,2,5);
-    SET id_suff_int = CAST(id_suff AS UNSIGNED INTEGER) + 1;
-    
-    SET next_id = CONCAT(id_pref, id_suff_int);
-    */
-    
     -- Increment the last used ID to get the new one, and assign to output variable
-    SET next_id = CONCAT(SUBSTR(curr_id,1,1), CAST(SUBSTR(curr_id,2,5) AS UNSIGNED INTEGER) + 1);
+    SET next_id = CONCAT(SUBSTR(curr_id,1,1), LPAD(CAST(SUBSTR(curr_id,2,5) AS UNSIGNED INTEGER) + 1, 5, '0'));
     
     -- Update the table with the new ID
-    SET @t1 := CONCAT('UPDATE last_used_id SET ', id_field, '=', next_id, 'WHERE last_used_pk = 0');
+    SET @t1 := CONCAT('UPDATE last_used_id SET ', id_field, '=''', next_id, ''' WHERE last_used_pk = 0');
     PREPARE stmt FROM @t1;
     EXECUTE stmt;
     DEALLOCATE PREPARE stmt;
