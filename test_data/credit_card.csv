@@ -1,0 +1,4 @@
+card_no,first_name,last_name,address_line_1,address_line_2,address_line_3,address_line_4,postcode,country,card_type,start_date,end_date,issue_no,ccv_code,client_id
+"1234567890123456","Doug","Cooper","144 Perry Rise","","","London","SE23 2QP","UK","Visa Debit","20120101","20160331","","123","c00001"
+"2345678901234567","Doug","Cooper","144 Perry Rise","","","London","SE23 2QP","UK","Visa Credit","20120101","20160331","","123","c00001"
+"3456789012345678","Justin","Sullivan","143 Perry Rise","","","London","SE23 2QP","UK","Mastercard Credit","20120101","20110331","","123","c00002"
