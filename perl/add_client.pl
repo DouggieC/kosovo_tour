@@ -13,7 +13,7 @@
 * 1.4: Use get_next_id() stored proc instead of updating IDs
 *      in Perl code.
 ###############################################################
-
+#!/usr/bin/perl
 use warnings;
 use strict;
 use CGI;
@@ -64,11 +64,21 @@ print $cgi->end_html();
 
 %insertData = $cgi->param();
 
+foreach ($cgi->param()) {
+#    unless ($_ == 'email_address' or $_ == 'postcode') {
+        $insertData{$_} = $cgi->param($_, ucfirst(lc($cgi->param($_))));
+#    } else {
+#        $insertData{$_} = $cgi->param($_);
+#    }
+}
+
 # Insert the data
-# First get the next client ID from the database
-my $sql = "CALL get_next_id('a', \@rtn)";
-$dbh->do($sql);
-$client_id = $dbh->selectrow_array('SELECT @rtn');
+# First get the last-used client ID from the database
+#my $curr_id = ($dbh->selectrow_array("SELECT client_id FROM last_used_id WHERE last_used_pk = '0';"))[0];
+my $curr_id = ($dbh->selectrow_array("SELECT client_id FROM last_used_id LIMIT 1;"))[0];
+my $num = substr($curr_id,1);
+$num++;
+$client_id = "c" . $num;
 
 # Begin transaction
 eval {

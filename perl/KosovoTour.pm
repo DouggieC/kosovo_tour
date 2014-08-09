@@ -7,12 +7,13 @@ use DBI;
 use Config::Simple;
 
 our @ISA       = qw(Exporter);
-our @EXPORT_OK = qw(connect_db get_config);
-our @EXPORT    = qw(connect_db get_config);
+our @EXPORT_OK = qw(connect_db get_config get_next_id);
+our @EXPORT    = qw(connect_db get_config get_next_id);
 
 sub connect_db($$$);
 #sub init_db($$$);
 sub get_config();
+sub get_next_id($);
 
 sub connect_db($$$) {
     my ($dbname, $uname, $pword) = (shift, shift, shift);
@@ -39,6 +40,18 @@ sub get_config() {
     Config::Simple->import_from($configFile, \%config);
 
     return %config;
+}
+
+sub get_next_id($) {
+    my ($id, $idType, $sql);
+
+    $idType = shift;
+
+    $sql = "CALL get_next_id('" . $idType . "', \@rtn)";
+    $dbh->do($sql);
+    $id = $dbh->selectrow_array('SELECT @rtn');
+
+    return $id;
 }
 
 1;
