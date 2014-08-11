@@ -2,10 +2,11 @@
 use warnings;
 use strict;
 use CGI;
+use lib "/opt/git/kosovo_tour/perl";
 use KosovoTour;
 
 my ($cgi, $dbh, $sth, $picFile, $myAccomId, $roomTypes, $roomTypeValues, $roomTypeLabels,
-    $roomPbs, $roomPbValues, $roomPbLabels, @row, %config, %searchData);
+    $roomPbs, $roomPbValues, $roomPbLabels, %config, %searchData);
 
 # Get the config details from file
 %config = get_config();
@@ -24,24 +25,13 @@ $roomPbValues = [sort(keys(%{$roomPbs}))];
 $roomPbLabels = { map {$_->{room_pb_id} => $_->{room_price_basis}} values(%{$roomPbs}) };
 
 
-$cgi = new CGI;
-print $cgi->header,
-      $cgi->start_html(-title => "Search for accommodation"),
-      $cgi->h1("Please enter the required accommodation details:"),
-      $cgi->start_form,
-      $cgi->p("Town: ", $cgi->textfield(-name=>'town'), $cgi->br,
-                 "Room Type: ", $cgi->popup_menu(-name=>'room_type', -values=>$roomTypeValues, -labels=>$roomTypeLabels), $cgi->br,
-                 "Price Basis: ", $cgi->popup_menu(-name=>'price_basis', -values=>$roomPbValues, -labels=>$roomPbLabels));
-print $cgi->submit(-name=>'submit', -value=>'Search'), $cgi->br, $cgi->br;
-print $cgi->end_form;
-print $cgi->end_html();
-
-# Read user input from webpage into hash for DB insertion
-foreach ($cgi->param()) {
-    $searchData{$_} = $cgi->param($_);
-}
-
 # Search for a match
+
+%searchData = (
+    'town'        => 'Prishtina',
+    'room_type'   => 'Double',
+    'price_basis' => 'Full Board',
+);
 
 $sth = $dbh->prepare("SELECT a.name, r.room_id, r.description, rt.room_type, r.price, rpb.room_price_basis
                       FROM accommodation a, room r, room_type rt, room_price_basis rpb
@@ -51,53 +41,25 @@ $sth = $dbh->prepare("SELECT a.name, r.room_id, r.description, rt.room_type, r.p
 $sth->execute($searchData{'town'}, $searchData{'room_type'}, $searchData{'price_basis'})
     || die "Couldn't insert client details: $DBI::errstr\n";
 
-my @rows;
-while (@row = $sth->fetchrow_array) {
-    push @rows, \@row;
-}
-
-foreach (@rows) {
-    foreach (@$_) {
+while (my @row = $sth->fetchrow_array) {
+    foreach (@row) {
         print "$_\t";
     }
     print "\n";
 }
 
-print $cgi->table({-border=>1, -cellpadding=>3}, $cgi->Tr([
-      $cgi->th(['Hotel Name', 'Room No.', 'Description', 'Type', 'Price', 'Basis']),
-      map {
-          $cgi->td([
-              map { $_ } @$_
-          ])
-      } @rows
-      ])
-);
-
-#while (@row = $sth->fetchrow_array) {
-#    print $cgi->
-#    foreach (@row) {
-#        print "$_\t";
+#foreach (my $result = $sth->fetchrow_hashref) {
+#    foreach (keys %{$result}) {
+#        print "$_:\t$result->{$_}\n";
 #    }
-#    print "\n";
+#}
+
+#my @results = $sth->fetchall_arrayref({});
+
+#foreach (@results) {
+#    print keys $_;
 #}
 
 # Tidy up and disconnect
+$sth->finish();
 $dbh->disconnect();
-
-# Sample of table
-#my @rows = (
-#  [ 1, 2,  3,  4 ],
-#  [ 5, 6,  7,  8 ],
-#  [ 9, 10, 11, 12 ],
-#);
-#print table({-border=>1},Tr([
-#      th(['Document', 'X', 'Y', 'Z']),
-#      map {
-#        td([
-#                map {
-#                        a({-href=>$_},$_)
-#                } @$_
-#        ])
-#      } @rows
-#    ])
-#  );

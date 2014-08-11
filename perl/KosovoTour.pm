@@ -36,14 +36,14 @@ sub connect_db($$$) {
 
 sub get_config() {
     my ($configFile, %config);
-    $configFile = "kostour.ini";
+    $configFile = "/opt/git/kosovo_tour/perl/kostour.ini";
     Config::Simple->import_from($configFile, \%config);
 
     return %config;
 }
 
 sub get_next_id($) {
-    my ($id, $idType, $sql);
+    my ($id, $idType, $sql, $dbh);
 
     $idType = shift;
 
