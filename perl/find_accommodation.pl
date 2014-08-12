@@ -30,8 +30,9 @@ print $cgi->header,
       $cgi->h1("Please enter the required accommodation details:"),
       $cgi->start_form,
       $cgi->p("Town: ", $cgi->textfield(-name=>'town'), $cgi->br,
-                 "Room Type: ", $cgi->popup_menu(-name=>'room_type', -values=>$roomTypeValues, -labels=>$roomTypeLabels), $cgi->br,
-                 "Price Basis: ", $cgi->popup_menu(-name=>'price_basis', -values=>$roomPbValues, -labels=>$roomPbLabels));
+              "Room Type: ", $cgi->popup_menu(-name=>'room_type', -values=>$roomTypeValues, -labels=>$roomTypeLabels), $cgi->br,
+              "Price Basis: ", $cgi->popup_menu(-name=>'price_basis', -values=>$roomPbValues, -labels=>$roomPbLabels), $cgi->br,
+              "Start Date: ", $cgi->textfield(-name=>'start_date'), "End Date: ", $cgi->textfield(-name=>'end_date'));
 print $cgi->submit(-name=>'submit', -value=>'Search'), $cgi->br, $cgi->br;
 print $cgi->end_form;
 print $cgi->end_html();
@@ -44,11 +45,13 @@ foreach ($cgi->param()) {
 # Search for a match
 
 $sth = $dbh->prepare("SELECT a.name, r.room_id, r.description, rt.room_type, r.price, rpb.room_price_basis
-                      FROM accommodation a, room r, room_type rt, room_price_basis rpb
+                      FROM accommodation a, room r, room_type rt, room_price_basis rpb, booking b, books_room br
                       WHERE r.accom_id = a.accom_id AND rt.room_type_id = r.room_type AND rpb.room_pb_id = r.price_basis
-                      AND a.address_line_4 = ? AND rt.room_type = ? AND rpb.room_price_basis = ?");
+                      AND br.room_id = r.room_id AND b.booking_id = br.booking_id
+                      AND a.address_line_4 = ? AND rt.room_type = ? AND rpb.room_price_basis = ?
+                      AND (b.end_date < ? OR b.start_date > ? OR (b.end_date IS NULL AND b.start_date IS NULL))");
 
-$sth->execute($searchData{'town'}, $searchData{'room_type'}, $searchData{'price_basis'})
+$sth->execute($searchData{'town'}, $searchData{'room_type'}, $searchData{'price_basis'}, $searchData{'start_date'}, $searchData{'end_date'})
     || die "Couldn't insert client details: $DBI::errstr\n";
 
 my @rows;
