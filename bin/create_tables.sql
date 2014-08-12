@@ -2,35 +2,36 @@
 ********************************************************** 
 * Name:    create_tables.sql
 * Author:  Doug Cooper
-* Version: 2.9
+* Version: 2.10
 * Date:    01-07-2014
 *
 * Version History
-* 1.0: Initial code
-* 1.1: MySQL does not support CREATE DOMAIN.
-*      Use standard types and add constraints
-*      to table definition instead.
-* 1.2: CHECK constraints unsupported too.
-*      Rewritten to use triggers instead.
-*      Enumerated lists added as ENUMs where appropriate.
-* 2.0: Hefty rewrite to fully implement changes mentioned
-*      in 1.1 & 1.2 above.
-*      Also added error handling
-* 2.1: Don't use MYSQL_ERRNO for user-defined errors. Changed to
-*      Use SQLSTATE '45xxx' instead.
-* 2.2: SIGNAL does not appear to work correctly for error
-*      handling. Reverted to invalid proc call instead.
-* 2.3: Correct syntax for SIGNAL. Revert to this method rather
-*      then invalid procedure call.
-* 2.4: Improve error handling for IDs and email addresses.
-* 2.5: Replace ENUMs with lookup tables - this is std SQL and
-*      more easily maintained.
-* 2.6: Drop whole DB & recreate rather than dropping individual
-*      tables.
-* 2.7: Address stored in multiple lines instead of one large
-*      VARCHAR(200).
-* 2.8: Add table to hold last-used IDs.
-* 2.9 : Corrections to procedure get_next_id()
+* 1.0:  Initial code
+* 1.1:  MySQL does not support CREATE DOMAIN.
+*       Use standard types and add constraints
+*       to table definition instead.
+* 1.2:  CHECK constraints unsupported too.
+*       Rewritten to use triggers instead.
+*       Enumerated lists added as ENUMs where appropriate.
+* 2.0:  Hefty rewrite to fully implement changes mentioned
+*       in 1.1 & 1.2 above.
+*       Also added error handling
+* 2.1:  Don't use MYSQL_ERRNO for user-defined errors. Changed to
+*       Use SQLSTATE '45xxx' instead.
+* 2.2:  SIGNAL does not appear to work correctly for error
+*       handling. Reverted to invalid proc call instead.
+* 2.3:  Correct syntax for SIGNAL. Revert to this method rather
+*       then invalid procedure call.
+* 2.4:  Improve error handling for IDs and email addresses.
+* 2.5:  Replace ENUMs with lookup tables - this is std SQL and
+*       more easily maintained.
+* 2.6:  Drop whole DB & recreate rather than dropping individual
+*       tables.
+* 2.7:  Address stored in multiple lines instead of one large
+*       VARCHAR(200).
+* 2.8:  Add table to hold last-used IDs.
+* 2.9:  Corrections to procedure get_next_id()
+* 2.10: Correct errors in validate_booking() procedure
 **********************************************************
 */
 
@@ -117,7 +118,7 @@ CREATE TABLE booking (
     booking_time TIME NOT NULL,
     booking_type INT NOT NULL,
     start_date DATE NOT NULL,
-    start_time TIME NOT NULL,
+    start_time TIME,
     end_date DATE,
     end_time TIME,
     price DECIMAL(6,2) NOT NULL,
@@ -496,21 +497,23 @@ BEGIN
     CALL validate_id(my_booking_id, 'b');
 
     -- Client IDs are c99999
-    CALL validate_id(my_client_id, 'b');
+    CALL validate_id(my_client_id, 'c');
 
     /* Constraint c1: A Booking entity must take part in exactly one occurrence of
        either the BookingB, BookingBR or BookingBT relationship.
+       Booking types are: 1 - accommodation, 2 - activity, 3 - attraction & 4 - transport.
+       All stored in booking_type table.
     */
-    IF (NOT ((my_booking_type = 'Accommodation'
+    IF (NOT ((my_booking_type = '1'
                AND (my_booking_id IN
                     (SELECT DISTINCT booking_id FROM books_room))
               ) OR
-               (my_booking_type IN ('Activity', 'Attraction')
+               (my_booking_type IN ('2', '3')
                AND (my_booking_id IN
                     (SELECT DISTINCT booking_id FROM books))
               ) OR
-               (my_booking_type = 'Transport'
-               AND (booking_id IN
+               (my_booking_type = '4'
+               AND (my_booking_id IN
                     (SELECT DISTINCT booking_id FROM books_transport))
               ))
         )
