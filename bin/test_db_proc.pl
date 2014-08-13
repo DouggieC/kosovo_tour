@@ -19,9 +19,19 @@ $dbh=DBI->connect($dsn, $config{Username}, $config{Password},
                   {RaiseError=>1, AutoCommit=>0, ShowErrorStatement=>1}) ||
      die "Error opening database: $DBI::errstr\n";
 
-$sql = "CALL get_next_id('a', \@rtnVal)";
-$dbh->do($sql);
-$id = $dbh->selectrow_array('SELECT @rtnVal;');
+#$sql = "CALL get_next_id('a', \@rtnVal)";
+#$dbh->do($sql);
+$dbh->do("CALL get_next_id('a', \@rtnVal);");
+$id = ($dbh->selectrow_array("SELECT \@rtnVal;"))[0];
+#$sth = $dbh->prepare("SELECT \@rtnVal");
+#$sql = "CALL get_next_id('a', \@rtnVal); SELECT \@rtnVal;";
+#$sth = $dbh->prepare($sql);
+#$sth->execute();
+#$sth = $dbh->prepare("SELECT \@rtnVal");
+#$sth->execute();
+#$id = $sth->fetchrow_array();
+#$sth->finish();
+
 #$sth = $dbh->prepare('CALL get_next_id(?, ?);');
 #$sth->bind_param(1, \$type, SQL_CHAR);
 #$sth->bind_param(2, \$id, SQL_CHAR);

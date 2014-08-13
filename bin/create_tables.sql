@@ -655,7 +655,7 @@ BEGIN
     DEALLOCATE PREPARE stmt;
 
     -- Increment the last used ID to get the new one, and assign to output variable
-    SET next_id = CONCAT(SUBSTR(curr_id,1,1), LPAD(CAST(SUBSTR(curr_id,2,5) AS UNSIGNED INTEGER) + 1, 5, '0'));
+    SET next_id = CONCAT(SUBSTR(@curr_id,1,1), LPAD(CAST(SUBSTR(@curr_id,2,5) AS UNSIGNED INTEGER) + 1, 5, '0'));
 
     -- Update the table with the new ID
     SET @t1 := CONCAT('UPDATE last_used_id SET ', id_field, '= ?');
