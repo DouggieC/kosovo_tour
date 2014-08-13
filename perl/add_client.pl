@@ -74,11 +74,14 @@ foreach ($cgi->param()) {
 
 # Insert the data
 # First get the last-used client ID from the database
-#my $curr_id = ($dbh->selectrow_array("SELECT client_id FROM last_used_id WHERE last_used_pk = '0';"))[0];
-my $curr_id = ($dbh->selectrow_array("SELECT client_id FROM last_used_id LIMIT 1;"))[0];
-my $num = substr($curr_id,1);
-$num++;
-$client_id = "c" . $num;
+$dbh->do("CALL get_next_id('c', \@rtnVal)");
+$client_id = $dbh->selectrow_array('SELECT @rtnVal');
+
+##my $curr_id = ($dbh->selectrow_array("SELECT client_id FROM last_used_id WHERE last_used_pk = '0';"))[0];
+#my $curr_id = ($dbh->selectrow_array("SELECT client_id FROM last_used_id LIMIT 1;"))[0];
+#my $num = substr($curr_id,1);
+#$num++;
+#$client_id = "c" . $num;
 
 # Begin transaction
 eval {

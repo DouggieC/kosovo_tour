@@ -2,7 +2,7 @@
 ********************************************************** 
 * Name:    create_tables.sql
 * Author:  Doug Cooper
-* Version: 2.10
+* Version: 2.11
 * Date:    01-07-2014
 *
 * Version History
@@ -32,6 +32,7 @@
 * 2.8:  Add table to hold last-used IDs.
 * 2.9:  Corrections to procedure get_next_id()
 * 2.10: Correct errors in validate_booking() procedure
+* 2.11: Corrections to procedure get_next_id()
 **********************************************************
 */
 
@@ -624,7 +625,7 @@ END $$
 
 CREATE PROCEDURE get_next_id (IN my_id_type CHAR(1), OUT next_id CHAR(6))
 BEGIN
-    
+
     DECLARE id_field VARCHAR(15);
     DECLARE err_msg VARCHAR(50);
     DECLARE t1 VARCHAR(50);
@@ -646,22 +647,23 @@ BEGIN
                     SET MESSAGE_TEXT='ID type invalid.';
             END;
     END CASE;
-    
+
     -- Get the last used ID from the table
-    SET @t1 := CONCAT('SELECT ', id_field, ' INTO @curr_id FROM last_used_id WHERE last_used_pk = 0');
+    SET @t1 := CONCAT('SELECT ', id_field, ' INTO @curr_id FROM last_used_id LIMIT 1');
     PREPARE stmt FROM @t1;
     EXECUTE stmt;
     DEALLOCATE PREPARE stmt;
-    
+
     -- Increment the last used ID to get the new one, and assign to output variable
     SET next_id = CONCAT(SUBSTR(curr_id,1,1), LPAD(CAST(SUBSTR(curr_id,2,5) AS UNSIGNED INTEGER) + 1, 5, '0'));
-    
+
     -- Update the table with the new ID
-    SET @t1 := CONCAT('UPDATE last_used_id SET ', id_field, '=''', next_id, ''' WHERE last_used_pk = 0');
+    SET @t1 := CONCAT('UPDATE last_used_id SET ', id_field, '= ?');
+    SET @update_id = next_id;
     PREPARE stmt FROM @t1;
-    EXECUTE stmt;
+    EXECUTE stmt USING @update_id;
     DEALLOCATE PREPARE stmt;
-    
+
 END $$
 
 CREATE TRIGGER validate_client_on_insert BEFORE INSERT ON client

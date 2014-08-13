@@ -28,34 +28,37 @@ BEGIN
                     SET MESSAGE_TEXT='ID type invalid.';
             END;
     END CASE;
-    
+
     -- Get the last used ID from the table
-    SET @t1 := CONCAT('SELECT ', id_field, 'INTO @curr_id FROM last_used_id WHERE last_used_pk = 0');
+    SET @t1 := CONCAT('SELECT ', id_field, ' INTO @curr_id FROM last_used_id LIMIT 1');
     PREPARE stmt FROM @t1;
     EXECUTE stmt;
     DEALLOCATE PREPARE stmt;
-    
+
     /*
     SET id_pref = SUBSTR(curr_id,1,1);
     SET id_suff = SUBSTR(curr_id,2,5);
     SET id_suff_int = CAST(id_suff AS UNSIGNED INTEGER) + 1;
-    
+
     SET next_id = CONCAT(id_pref, id_suff_int);
     */
-    
+
     -- Increment the last used ID to get the new one, and assign to output variable
-    SET next_id = CONCAT(SUBSTR(curr_id,1,1), CAST(SUBSTR(curr_id,2,5) AS UNSIGNED INTEGER) + 1);
-    
+    SET next_id = CONCAT(SUBSTR(@curr_id,1,1), LPAD(CAST(SUBSTR(@curr_id,2,5) AS UNSIGNED INTEGER) + 1,5,'0'));
+
     -- Update the table with the new ID
-    SET @t1 := CONCAT('UPDATE last_used_id SET ', id_field, '=', next_id, 'WHERE last_used_pk = 0');
+    -- SET @t1 := CONCAT('UPDATE last_used_id SET ', id_field, '=', next_id, ' WHERE last_used_pk = 0');
+    -- SET @t1 := CONCAT('UPDATE last_used_id SET ', id_field, '= ? WHERE last_used_pk = 0');
+    SET @t1 := CONCAT('UPDATE last_used_id SET ', id_field, '= ?');
+    SET @update_id = next_id;
     PREPARE stmt FROM @t1;
-    EXECUTE stmt;
+    EXECUTE stmt USING @update_id;
     DEALLOCATE PREPARE stmt;
-    
+
 END $$
 
 DELIMITER ;
 
 CALL test_next_id('a', @myId);
 
-SELECT @myId;
+SELECT CONCAT('@myId: /', @myId, '/');
