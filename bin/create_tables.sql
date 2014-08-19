@@ -805,10 +805,10 @@ INSERT INTO room_type VALUES
 ;
 
 INSERT INTO room_price_basis VALUES
-    ('','full board'),
-    ('','half board'),
-    ('','bed & breakfast'),
-    ('','room only')
+    ('','Full Board'),
+    ('','Half Board'),
+    ('','Bed & Breakfast'),
+    ('','Room Only')
 ;
 
 INSERT INTO booking_type VALUES
