@@ -45,11 +45,14 @@ foreach ($cgi->param()) {
 # Search for a match
 
 $sth = $dbh->prepare("SELECT a.name, r.room_id, r.description, rt.room_type, r.price, rpb.room_price_basis
-                      FROM accommodation a, room r, room_type rt, room_price_basis rpb, booking b, books_room br
-                      WHERE r.accom_id = a.accom_id AND rt.room_type_id = r.room_type AND rpb.room_pb_id = r.price_basis
-                      AND br.room_id = r.room_id AND b.booking_id = br.booking_id
-                      AND a.address_line_4 = ? AND rt.room_type = ? AND rpb.room_price_basis = ?
-                      AND (b.end_date < ? OR b.start_date > ? OR (b.end_date IS NULL AND b.start_date IS NULL))");
+                      FROM accommodation a LEFT JOIN room r ON r.accom_id = a.accom_id
+                           LEFT JOIN room_type rt ON r.room_type = rt.room_type_id
+                           LEFT JOIN room_price_basis rpb ON r.price_basis = rpb.room_pb_id
+                           LEFT JOIN books_room br ON r.room_id = br.room_id
+                           LEFT JOIN booking b ON br.booking_id = b.booking_id
+                      WHERE (a.address_line_1 = ? OR a.address_line_2 = ? OR a.address_line_3 = ? OR a.address_line_4 = ?)
+                        AND rt.room_type = ? AND rpb.room_price_basis = ?
+                        AND (b.end_date < ? OR b.start_date > ? OR (b.end_date IS NULL AND b.start_date IS NULL))");
 
 $sth->execute($searchData{'town'}, $searchData{'room_type'}, $searchData{'price_basis'}, $searchData{'start_date'}, $searchData{'end_date'})
     || die "Couldn't insert client details: $DBI::errstr\n";
